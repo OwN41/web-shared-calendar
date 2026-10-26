@@ -1,27 +1,12 @@
-import { Pool } from "pg";
+import "server-only";
+import { PrismaClient } from "@prisma/client";
 
-const globalForPg = globalThis as unknown as { pgPool?: Pool };
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const pool =
-  globalForPg.pgPool ??
-  new Pool({
-    connectionString: process.env.DATABASE_URL,
-    max: 10,
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPg.pgPool = pool;
-
-export async function query<T extends object = Record<string, unknown>>(
-  text: string,
-  params: unknown[] = [],
-): Promise<T[]> {
-  const res = await pool.query(text, params);
-  return res.rows as T[];
-}
-
-export async function queryOne<T extends object = Record<string, unknown>>(
-  text: string,
-  params: unknown[] = [],
-): Promise<T | null> {
-  return (await query<T>(text, params))[0] ?? null;
-}
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

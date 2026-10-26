@@ -3,7 +3,7 @@ import { randomBytes, createHash, scrypt, timingSafeEqual } from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { query, queryOne } from "./db";
+import { prisma } from "./db";
 
 const COOKIE = "session";
 const SESSION_DAYS = 30;
@@ -44,10 +44,9 @@ const sha256 = (v: string) => createHash("sha256").update(v).digest("hex");
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString("base64url");
   const expires = new Date(Date.now() + SESSION_DAYS * 86_400_000);
-  await query(
-    "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)",
-    [sha256(token), userId, expires],
-  );
+  await prisma.session.create({
+    data: { tokenHash: sha256(token), userId, expiresAt: expires },
+  });
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -60,19 +59,31 @@ export async function createSession(userId: string) {
 export async function destroySession() {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
-  if (token) await query("DELETE FROM sessions WHERE token_hash = $1", [sha256(token)]);
+  if (token) await prisma.session.deleteMany({ where: { tokenHash: sha256(token) } });
   jar.delete(COOKIE);
 }
 
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
-  return queryOne<User>(
-    `SELECT u.id, u.email, u.name, u.role, u.color
-       FROM sessions s JOIN users u ON u.id = s.user_id
-      WHERE s.token_hash = $1 AND s.expires_at > now() AND NOT u.disabled`,
-    [sha256(token)],
-  );
+  const session = await prisma.session.findFirst({
+    where: {
+      tokenHash: sha256(token),
+      expiresAt: { gt: new Date() },
+      user: { disabled: false },
+    },
+    select: {
+      user: {
+        select: { id: true, email: true, name: true, role: true, color: true },
+      },
+    },
+  });
+  if (!session) return null;
+  const { role } = session.user;
+  if (role !== "user" && role !== "admin") {
+    throw new Error(`Invalid role stored for user ${session.user.id}.`);
+  }
+  return { ...session.user, role };
 });
 
 export async function requireUser(): Promise<User> {

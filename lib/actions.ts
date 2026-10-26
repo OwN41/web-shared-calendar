@@ -3,7 +3,8 @@
 import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { pool, query, queryOne } from "./db";
+import { Prisma } from "@prisma/client";
+import { prisma } from "./db";
 import {
   clearLoginFailures,
   createSession,
@@ -40,16 +41,22 @@ export async function register(fd: FormData) {
 
   const hash = await hashPassword(password);
   // The very first account becomes the administrator.
-  const user = await queryOne<{ id: string }>(
-    `INSERT INTO users (email, name, password_hash, color, role)
-     VALUES ($1, $2, $3, $4,
-       CASE WHEN EXISTS (SELECT 1 FROM users) THEN 'user' ELSE 'admin' END)
-     ON CONFLICT (email) DO NOTHING
-     RETURNING id`,
-    [email, name, hash, color],
-  );
-  if (!user) fail("/register", "An account with this email already exists.");
-  await createSession(user!.id);
+  let user: { id: string };
+  try {
+    user = await prisma.$transaction(async (tx) => {
+      const role = (await tx.user.count()) === 0 ? "admin" : "user";
+      return tx.user.create({
+        data: { email, name, passwordHash: hash, color, role },
+        select: { id: true },
+      });
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      fail("/register", "An account with this email already exists.");
+    }
+    throw error;
+  }
+  await createSession(user.id);
   redirect("/calendar");
 }
 
@@ -58,20 +65,23 @@ export async function login(fd: FormData) {
   const password = String(fd.get("password") ?? "");
   if (loginThrottled(email)) fail("/login", "Too many attempts. Try again later.");
 
-  const user = await queryOne<{ id: string; password_hash: string; disabled: boolean }>(
-    "SELECT id, password_hash, disabled FROM users WHERE email = $1",
-    [email],
-  );
-  const ok = user ? await verifyPassword(password, user.password_hash) : false;
-  if (!user || !ok) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, passwordHash: true, disabled: true },
+  });
+  if (!user) {
     recordLoginFailure(email);
-    fail("/login", "Invalid email or password.");
+    return fail("/login", "Invalid email or password.");
   }
-  if (user!.disabled) fail("/login", "This account has been disabled.");
+  if (!(await verifyPassword(password, user.passwordHash))) {
+    recordLoginFailure(email);
+    return fail("/login", "Invalid email or password.");
+  }
+  if (user.disabled) return fail("/login", "This account has been disabled.");
 
   clearLoginFailures(email);
-  await query("UPDATE users SET last_login_at = now() WHERE id = $1", [user!.id]);
-  await createSession(user!.id);
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  await createSession(user.id);
   redirect("/calendar");
 }
 
@@ -84,11 +94,11 @@ export async function logout() {
 
 async function myGroupIds(userId: string, wanted: string[]): Promise<string[]> {
   if (!wanted.length) return [];
-  const rows = await query<{ group_id: string }>(
-    "SELECT group_id FROM group_members WHERE user_id = $1 AND group_id = ANY($2::uuid[])",
-    [userId, wanted],
-  );
-  return rows.map((r) => r.group_id);
+  const rows = await prisma.groupMember.findMany({
+    where: { userId, groupId: { in: wanted } },
+    select: { groupId: true },
+  });
+  return rows.map(({ groupId }) => groupId);
 }
 
 const uuids = (fd: FormData, key: string) =>
@@ -108,44 +118,52 @@ export async function createEvent(fd: FormData) {
   if (ends < starts) fail(back, "The end must not be before the start.");
 
   const groups = await myGroupIds(user.id, uuids(fd, "groups"));
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const { rows } = await client.query(
-      `INSERT INTO events (owner_id, title, description, location, starts_at, ends_at, all_day)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [user.id, title, str(fd, "description").slice(0, 2000), str(fd, "location").slice(0, 200), starts, ends, allDay],
-    );
-    for (const g of groups) {
-      await client.query("INSERT INTO event_shares (event_id, group_id) VALUES ($1,$2)", [rows[0].id, g]);
+  await prisma.$transaction(async (tx) => {
+    const event = await tx.event.create({
+      data: {
+        ownerId: user.id,
+        title,
+        description: str(fd, "description").slice(0, 2000),
+        location: str(fd, "location").slice(0, 200),
+        startsAt: starts,
+        endsAt: ends,
+        allDay,
+      },
+      select: { id: true },
+    });
+    if (groups.length) {
+      await tx.eventShare.createMany({
+        data: groups.map((groupId) => ({ eventId: event.id, groupId })),
+      });
     }
-    await client.query("COMMIT");
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
-  } finally {
-    client.release();
-  }
+  });
   revalidatePath("/", "layout");
   redirect(`${back}?month=${starts.toISOString().slice(0, 7)}`);
 }
 
 export async function deleteEvent(fd: FormData) {
   const user = await requireUser();
-  await query("DELETE FROM events WHERE id = $1 AND owner_id = $2", [str(fd, "id"), user.id]);
+  await prisma.event.deleteMany({ where: { id: str(fd, "id"), ownerId: user.id } });
   revalidatePath("/", "layout");
 }
 
 export async function setEventShares(fd: FormData) {
   const user = await requireUser();
   const id = str(fd, "id");
-  const owned = await queryOne("SELECT 1 FROM events WHERE id = $1 AND owner_id = $2", [id, user.id]);
+  const owned = await prisma.event.findFirst({
+    where: { id, ownerId: user.id },
+    select: { id: true },
+  });
   if (!owned) return;
   const groups = await myGroupIds(user.id, uuids(fd, "groups"));
-  await query("DELETE FROM event_shares WHERE event_id = $1", [id]);
-  for (const g of groups) {
-    await query("INSERT INTO event_shares (event_id, group_id) VALUES ($1,$2)", [id, g]);
-  }
+  await prisma.$transaction(async (tx) => {
+    await tx.eventShare.deleteMany({ where: { eventId: id } });
+    if (groups.length) {
+      await tx.eventShare.createMany({
+        data: groups.map((groupId) => ({ eventId: id, groupId })),
+      });
+    }
+  });
   revalidatePath("/", "layout");
 }
 
@@ -157,24 +175,15 @@ export async function createGroup(fd: FormData) {
   const user = await requireUser();
   const name = str(fd, "name");
   if (!name || name.length > 80) fail("/groups", "Please enter a group name.");
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const { rows } = await client.query(
-      "INSERT INTO groups (name, invite_code, created_by) VALUES ($1,$2,$3) RETURNING id",
-      [name, newInviteCode(), user.id],
-    );
-    await client.query(
-      "INSERT INTO group_members (group_id, user_id, role) VALUES ($1,$2,'owner')",
-      [rows[0].id, user.id],
-    );
-    await client.query("COMMIT");
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
-  } finally {
-    client.release();
-  }
+  await prisma.$transaction(async (tx) => {
+    const group = await tx.group.create({
+      data: { name, inviteCode: newInviteCode(), createdBy: user.id },
+      select: { id: true },
+    });
+    await tx.groupMember.create({
+      data: { groupId: group.id, userId: user.id, role: "owner" },
+    });
+  });
   revalidatePath("/groups");
   redirect("/groups");
 }
@@ -182,12 +191,12 @@ export async function createGroup(fd: FormData) {
 export async function joinGroup(fd: FormData) {
   const user = await requireUser();
   const code = str(fd, "code").toUpperCase();
-  const group = await queryOne<{ id: string }>("SELECT id FROM groups WHERE invite_code = $1", [code]);
-  if (!group) fail("/groups", "Invalid invite code.");
-  await query(
-    "INSERT INTO group_members (group_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",
-    [group!.id, user.id],
-  );
+  const group = await prisma.group.findUnique({ where: { inviteCode: code }, select: { id: true } });
+  if (!group) return fail("/groups", "Invalid invite code.");
+  await prisma.groupMember.createMany({
+    data: [{ groupId: group.id, userId: user.id }],
+    skipDuplicates: true,
+  });
   revalidatePath("/", "layout");
   redirect("/groups");
 }
@@ -195,23 +204,22 @@ export async function joinGroup(fd: FormData) {
 export async function leaveGroup(fd: FormData) {
   const user = await requireUser();
   const id = str(fd, "id");
-  await query("DELETE FROM group_members WHERE group_id = $1 AND user_id = $2", [id, user.id]);
-  await query(
-    `DELETE FROM event_shares es USING events e
-      WHERE es.event_id = e.id AND e.owner_id = $1 AND es.group_id = $2`,
-    [user.id, id],
-  );
+  await prisma.groupMember.deleteMany({ where: { groupId: id, userId: user.id } });
+  await prisma.eventShare.deleteMany({
+    where: { groupId: id, event: { ownerId: user.id } },
+  });
   revalidatePath("/", "layout");
 }
 
 export async function regenerateInvite(fd: FormData) {
   const user = await requireUser();
-  await query(
-    `UPDATE groups SET invite_code = $3
-      WHERE id = $1 AND EXISTS (
-        SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2 AND role = 'owner')`,
-    [str(fd, "id"), user.id, newInviteCode()],
-  );
+  await prisma.group.updateMany({
+    where: {
+      id: str(fd, "id"),
+      memberships: { some: { userId: user.id, role: "owner" } },
+    },
+    data: { inviteCode: newInviteCode() },
+  });
   revalidatePath("/groups");
 }
 
@@ -222,7 +230,7 @@ export async function adminSetRole(fd: FormData) {
   const id = str(fd, "id");
   if (id === admin.id) return;
   const role = str(fd, "role") === "admin" ? "admin" : "user";
-  await query("UPDATE users SET role = $2 WHERE id = $1", [id, role]);
+  await prisma.user.updateMany({ where: { id }, data: { role } });
   revalidatePath("/admin", "layout");
 }
 
@@ -231,8 +239,8 @@ export async function adminSetDisabled(fd: FormData) {
   const id = str(fd, "id");
   if (id === admin.id) return;
   const disabled = str(fd, "disabled") === "true";
-  await query("UPDATE users SET disabled = $2 WHERE id = $1", [id, disabled]);
-  if (disabled) await query("DELETE FROM sessions WHERE user_id = $1", [id]);
+  await prisma.user.updateMany({ where: { id }, data: { disabled } });
+  if (disabled) await prisma.session.deleteMany({ where: { userId: id } });
   revalidatePath("/admin", "layout");
 }
 
@@ -241,8 +249,8 @@ export async function adminResetPassword(fd: FormData) {
   const password = String(fd.get("password") ?? "");
   if (password.length < 8) return;
   const id = str(fd, "id");
-  await query("UPDATE users SET password_hash = $2 WHERE id = $1", [id, await hashPassword(password)]);
-  await query("DELETE FROM sessions WHERE user_id = $1", [id]);
+  await prisma.user.updateMany({ where: { id }, data: { passwordHash: await hashPassword(password) } });
+  await prisma.session.deleteMany({ where: { userId: id } });
   revalidatePath("/admin", "layout");
 }
 
@@ -250,25 +258,25 @@ export async function adminDeleteUser(fd: FormData) {
   const admin = await requireAdmin();
   const id = str(fd, "id");
   if (id === admin.id) return;
-  await query("DELETE FROM users WHERE id = $1", [id]);
+  await prisma.user.deleteMany({ where: { id } });
   revalidatePath("/admin", "layout");
 }
 
 export async function adminDeleteGroup(fd: FormData) {
   await requireAdmin();
-  await query("DELETE FROM groups WHERE id = $1", [str(fd, "id")]);
+  await prisma.group.deleteMany({ where: { id: str(fd, "id") } });
   revalidatePath("/admin", "layout");
 }
 
 export async function adminAddMember(fd: FormData) {
   await requireAdmin();
   const email = str(fd, "email").toLowerCase();
-  const user = await queryOne<{ id: string }>("SELECT id FROM users WHERE email = $1", [email]);
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
   if (user) {
-    await query(
-      "INSERT INTO group_members (group_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",
-      [str(fd, "group_id"), user.id],
-    );
+    await prisma.groupMember.createMany({
+      data: [{ groupId: str(fd, "group_id"), userId: user.id }],
+      skipDuplicates: true,
+    });
   }
   revalidatePath("/admin", "layout");
 }
@@ -277,11 +285,9 @@ export async function adminRemoveMember(fd: FormData) {
   await requireAdmin();
   const group = str(fd, "group_id");
   const user = str(fd, "user_id");
-  await query("DELETE FROM group_members WHERE group_id = $1 AND user_id = $2", [group, user]);
-  await query(
-    `DELETE FROM event_shares es USING events e
-      WHERE es.event_id = e.id AND e.owner_id = $1 AND es.group_id = $2`,
-    [user, group],
-  );
+  await prisma.groupMember.deleteMany({ where: { groupId: group, userId: user } });
+  await prisma.eventShare.deleteMany({
+    where: { groupId: group, event: { ownerId: user } },
+  });
   revalidatePath("/admin", "layout");
 }

@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String        @unique
+  name          String
+  passwordHash  String        @map("password_hash")
+  role          String        @default("user")
+  color         String        @default("#3b82f6")
+  disabled      Boolean       @default(false)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastLoginAt   DateTime?     @map("last_login_at") @db.Timestamptz(6)
+  sessions      Session[]
+  memberships   GroupMember[]
+  events        Event[]
+  createdGroups Group[]       @relation("GroupCreator")
+
+  @@map("users")
+}
+
+model Session {
+  tokenHash String   @id @map("token_hash")
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "sessions_user_idx")
+  @@map("sessions")
+}
+
+model Group {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  inviteCode  String        @unique @map("invite_code")
+  createdBy   String?       @map("created_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  creator     User?         @relation("GroupCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  memberships GroupMember[]
+  shares      EventShare[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  groupId  String   @map("group_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     String   @default("member")
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId], map: "group_members_user_idx")
+  @@map("group_members")
+}
+
+model Event {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId     String       @map("owner_id") @db.Uuid
+  title       String
+  description String       @default("")
+  location    String       @default("")
+  startsAt    DateTime     @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime     @map("ends_at") @db.Timestamptz(6)
+  allDay      Boolean      @default(false) @map("all_day")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  shares      EventShare[]
+
+  @@index([ownerId, startsAt], map: "events_owner_start_idx")
+  @@map("events")
+}
+
+model EventShare {
+  eventId String @map("event_id") @db.Uuid
+  groupId String @map("group_id") @db.Uuid
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, groupId])
+  @@index([groupId], map: "event_shares_group_idx")
+  @@map("event_shares")
+}

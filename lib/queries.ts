@@ -1,5 +1,5 @@
 import "server-only";
-import { query, queryOne, pool } from "./db";
+import { prisma } from "./db";
 
 export type CalEvent = {
   id: string;
@@ -23,129 +23,242 @@ export type Group = {
   member_count: number;
 };
 
-const EVENT_COLS = `e.id, e.owner_id, u.name AS owner_name, u.color AS owner_color,
-  e.title, e.description, e.location, e.starts_at, e.ends_at, e.all_day,
-  COALESCE((SELECT array_agg(group_id) FROM event_shares WHERE event_id = e.id), '{}') AS group_ids`;
+function eventResult(
+  event: {
+    id: string;
+    ownerId: string;
+    title: string;
+    description: string;
+    location: string;
+    startsAt: Date;
+    endsAt: Date;
+    allDay: boolean;
+    owner: { name: string; color: string };
+    shares: { groupId: string }[];
+  },
+): CalEvent {
+  return {
+    id: event.id,
+    owner_id: event.ownerId,
+    owner_name: event.owner.name,
+    owner_color: event.owner.color,
+    title: event.title,
+    description: event.description,
+    location: event.location,
+    starts_at: event.startsAt,
+    ends_at: event.endsAt,
+    all_day: event.allDay,
+    group_ids: event.shares.map(({ groupId }) => groupId),
+  };
+}
 
-export function myEvents(userId: string, from: Date, to: Date) {
-  return query<CalEvent>(
-    `SELECT ${EVENT_COLS} FROM events e JOIN users u ON u.id = e.owner_id
-      WHERE e.owner_id = $1 AND e.starts_at < $3 AND e.ends_at >= $2
-      ORDER BY e.starts_at`,
-    [userId, from, to],
-  );
+const eventInclude = {
+  owner: { select: { name: true, color: true } },
+  shares: { select: { groupId: true } },
+} as const;
+
+export async function myEvents(userId: string, from: Date, to: Date) {
+  const events = await prisma.event.findMany({
+    where: {
+      ownerId: userId,
+      startsAt: { lt: to },
+      endsAt: { gte: from },
+    },
+    include: eventInclude,
+    orderBy: { startsAt: "asc" },
+  });
+  return events.map(eventResult);
 }
 
 /** Events shared into groups the user belongs to (optionally a single group). */
-export function sharedEvents(userId: string, from: Date, to: Date, groupId?: string) {
-  return query<CalEvent>(
-    `SELECT ${EVENT_COLS} FROM events e JOIN users u ON u.id = e.owner_id
-      WHERE e.starts_at < $3 AND e.ends_at >= $2
-        AND EXISTS (
-          SELECT 1 FROM event_shares es
-            JOIN group_members gm ON gm.group_id = es.group_id AND gm.user_id = $1
-           WHERE es.event_id = e.id AND ($4::uuid IS NULL OR es.group_id = $4))
-      ORDER BY e.starts_at`,
-    [userId, from, to, groupId ?? null],
-  );
+export async function sharedEvents(userId: string, from: Date, to: Date, groupId?: string) {
+  const events = await prisma.event.findMany({
+    where: {
+      startsAt: { lt: to },
+      endsAt: { gte: from },
+      shares: {
+        some: {
+          ...(groupId ? { groupId } : {}),
+          group: { memberships: { some: { userId } } },
+        },
+      },
+    },
+    include: eventInclude,
+    orderBy: { startsAt: "asc" },
+  });
+  return events.map(eventResult);
 }
 
-export function myGroups(userId: string) {
-  return query<Group>(
-    `SELECT g.id, g.name, g.invite_code, gm.role,
-            (SELECT count(*)::int FROM group_members WHERE group_id = g.id) AS member_count
-       FROM groups g JOIN group_members gm ON gm.group_id = g.id
-      WHERE gm.user_id = $1 ORDER BY g.name`,
-    [userId],
-  );
+export async function myGroups(userId: string): Promise<Group[]> {
+  const memberships = await prisma.groupMember.findMany({
+    where: { userId },
+    include: { group: { include: { _count: { select: { memberships: true } } } } },
+    orderBy: { group: { name: "asc" } },
+  });
+  return memberships.map(({ group, role }) => ({
+    id: group.id,
+    name: group.name,
+    invite_code: group.inviteCode,
+    role: role as Group["role"],
+    member_count: group._count.memberships,
+  }));
 }
 
 export function groupMembers(groupIds: string[]) {
-  return query<{ group_id: string; name: string; color: string; role: string }>(
-    `SELECT gm.group_id, u.name, u.color, gm.role
-       FROM group_members gm JOIN users u ON u.id = gm.user_id
-      WHERE gm.group_id = ANY($1::uuid[]) ORDER BY u.name`,
-    [groupIds],
+  return prisma.groupMember.findMany({
+    where: { groupId: { in: groupIds } },
+    select: {
+      groupId: true,
+      role: true,
+      user: { select: { name: true, color: true } },
+    },
+    orderBy: { user: { name: "asc" } },
+  }).then((members) =>
+    members.map(({ groupId, role, user }) => ({
+      group_id: groupId,
+      name: user.name,
+      color: user.color,
+      role,
+    })),
   );
 }
 
 /* ---------- admin ---------- */
 
-export function adminUsers() {
-  return query<{
-    id: string; email: string; name: string; role: "user" | "admin";
-    disabled: boolean; created_at: Date; last_login_at: Date | null;
-    event_count: number; group_count: number;
-  }>(
-    `SELECT u.id, u.email, u.name, u.role, u.disabled, u.created_at, u.last_login_at,
-            (SELECT count(*)::int FROM events WHERE owner_id = u.id) AS event_count,
-            (SELECT count(*)::int FROM group_members WHERE user_id = u.id) AS group_count
-       FROM users u ORDER BY u.created_at`,
-  );
+export async function adminUsers() {
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      disabled: true,
+      createdAt: true,
+      lastLoginAt: true,
+      _count: { select: { events: true, memberships: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  return users.map(({ _count, ...user }) => ({
+    ...user,
+    created_at: user.createdAt,
+    last_login_at: user.lastLoginAt,
+    event_count: _count.events,
+    group_count: _count.memberships,
+  }));
 }
 
-export function adminGroups() {
-  return query<{ id: string; name: string; invite_code: string; created_at: Date; creator: string | null }>(
-    `SELECT g.id, g.name, g.invite_code, g.created_at, u.name AS creator
-       FROM groups g LEFT JOIN users u ON u.id = g.created_by ORDER BY g.name`,
-  );
+export async function adminGroups() {
+  const groups = await prisma.group.findMany({
+    include: { creator: { select: { name: true } } },
+    orderBy: { name: "asc" },
+  });
+  return groups.map(({ inviteCode, createdAt, creator, ...group }) => ({
+    ...group,
+    invite_code: inviteCode,
+    created_at: createdAt,
+    creator: creator?.name ?? null,
+  }));
 }
 
-export function adminGroupMembers() {
-  return query<{ group_id: string; user_id: string; name: string; email: string; role: string }>(
-    `SELECT gm.group_id, u.id AS user_id, u.name, u.email, gm.role
-       FROM group_members gm JOIN users u ON u.id = gm.user_id ORDER BY u.name`,
-  );
+export async function adminGroupMembers() {
+  const memberships = await prisma.groupMember.findMany({
+    include: { user: { select: { id: true, name: true, email: true } } },
+    orderBy: { user: { name: "asc" } },
+  });
+  return memberships.map(({ groupId, role, user }) => ({
+    group_id: groupId,
+    user_id: user.id,
+    name: user.name,
+    email: user.email,
+    role,
+  }));
 }
 
 export async function dashboardStats() {
-  const counts = await queryOne<Record<string, number>>(
-    `SELECT (SELECT count(*)::int FROM users) AS users,
-            (SELECT count(*)::int FROM users WHERE disabled) AS disabled_users,
-            (SELECT count(*)::int FROM users WHERE created_at > now() - interval '7 days') AS new_users,
-            (SELECT count(*)::int FROM users WHERE last_login_at > now() - interval '7 days') AS active_users,
-            (SELECT count(*)::int FROM groups) AS groups,
-            (SELECT count(*)::int FROM events) AS events,
-            (SELECT count(*)::int FROM event_shares) AS shares,
-            (SELECT count(*)::int FROM sessions WHERE expires_at > now()) AS sessions`,
-  );
+  const [
+    totalUsers,
+    disabledUsers,
+    newUsers,
+    activeUsers,
+    groups,
+    events,
+    shares,
+    sessions,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { disabled: true } }),
+    prisma.user.count({ where: { createdAt: { gt: new Date(Date.now() - 7 * 86_400_000) } } }),
+    prisma.user.count({ where: { lastLoginAt: { gt: new Date(Date.now() - 7 * 86_400_000) } } }),
+    prisma.group.count(),
+    prisma.event.count(),
+    prisma.eventShare.count(),
+    prisma.session.count({ where: { expiresAt: { gt: new Date() } } }),
+  ]);
+
+  const counts = {
+    users: totalUsers,
+    disabled_users: disabledUsers,
+    new_users: newUsers,
+    active_users: activeUsers,
+    groups,
+    events,
+    shares,
+    sessions,
+  };
 
   const t0 = performance.now();
-  const db = await queryOne<{
-    version: string; size: string; started: Date; connections: number; max_connections: number;
-  }>(
-    `SELECT version(), pg_size_pretty(pg_database_size(current_database())) AS size,
-            pg_postmaster_start_time() AS started,
-            (SELECT count(*)::int FROM pg_stat_activity WHERE datname = current_database()) AS connections,
-            current_setting('max_connections')::int AS max_connections`,
-  );
+  const [db] = await prisma.$queryRaw<{
+    version: string;
+    size: string;
+    started: Date;
+    connections: bigint;
+    max_connections: number;
+  }[]>`
+    SELECT version(), pg_size_pretty(pg_database_size(current_database())) AS size,
+           pg_postmaster_start_time() AS started,
+           (SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()) AS connections,
+           current_setting('max_connections')::int AS max_connections
+  `;
   const latencyMs = Math.round(performance.now() - t0);
 
-  const tables = await query<{ name: string; rows: number; size: string }>(
-    `SELECT relname AS name, n_live_tup::int AS rows,
-            pg_size_pretty(pg_total_relation_size(relid)) AS size
-       FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC`,
-  );
+  const tableRows = await prisma.$queryRaw<{
+    name: string;
+    rows: bigint;
+    size: string;
+  }[]>`
+    SELECT relname AS name, n_live_tup AS rows,
+           pg_size_pretty(pg_total_relation_size(relid)) AS size
+      FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC
+  `;
 
-  const perDay = await query<{ day: string; count: number }>(
-    `SELECT to_char(d, 'MM-DD') AS day,
-            (SELECT count(*)::int FROM events WHERE created_at::date = d::date) AS count
-       FROM generate_series(current_date - 13, current_date, interval '1 day') d ORDER BY d`,
-  );
+  const dailyRows = await prisma.$queryRaw<{
+    day: string;
+    count: bigint;
+  }[]>`
+    SELECT to_char(d, 'MM-DD') AS day,
+           (SELECT count(*) FROM events WHERE created_at::date = d::date) AS count
+      FROM generate_series(current_date - 13, current_date, interval '1 day') d ORDER BY d
+  `;
 
-  const topUsers = await query<{ name: string; events: number }>(
-    `SELECT u.name, count(e.id)::int AS events FROM users u
-       LEFT JOIN events e ON e.owner_id = u.id
-      GROUP BY u.id ORDER BY events DESC, u.name LIMIT 5`,
-  );
+  const topUsers = await prisma.user.findMany({
+    select: {
+      name: true,
+      _count: { select: { events: true } },
+    },
+    orderBy: [{ events: { _count: "desc" } }, { name: "asc" }],
+    take: 5,
+  });
 
   return {
-    counts: counts!,
-    db: db!,
+    counts,
+    db: {
+      ...db,
+      connections: Number(db.connections),
+    },
     latencyMs,
-    tables,
-    perDay,
-    topUsers,
-    pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
+    tables: tableRows.map(({ rows, ...table }) => ({ ...table, rows: Number(rows) })),
+    perDay: dailyRows.map(({ count, ...day }) => ({ ...day, count: Number(count) })),
+    topUsers: topUsers.map(({ name, _count }) => ({ name, events: _count.events })),
   };
 }
