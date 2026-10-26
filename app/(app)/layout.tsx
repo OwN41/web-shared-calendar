@@ -1,4 +1,5 @@
 import { Nav } from "@/components/Nav";
+import { OfflineSupport } from "@/components/OfflineSupport";
 import { requireUser } from "@/lib/auth";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -6,6 +7,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <>
       <Nav user={user} />
+      <OfflineSupport userId={user.id} />
       <main className="w-full flex-1 p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-8 lg:px-12 lg:pt-6">{children}</main>
     </>
   );

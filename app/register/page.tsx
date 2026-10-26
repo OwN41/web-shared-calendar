@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { OfflineSupport } from "@/components/OfflineSupport";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { register } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/auth";
@@ -13,6 +14,7 @@ export default async function RegisterPage({ searchParams }: PageProps<"/registe
   const t = await getTranslations("auth");
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
+      <OfflineSupport userId={null} banner={false} />
       <form action={register} className={`${cardCls} w-full max-w-sm space-y-4`}>
         <h1 className="text-xl font-semibold">{t("createAccount")}</h1>
         <ErrorBanner message={typeof error === "string" ? error : undefined} />

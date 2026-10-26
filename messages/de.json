@@ -75,6 +75,9 @@
     "share": "Teilen…",
     "save": "Speichern"
   },
+  "offline": {
+    "banner": "Keine Verbindung zum Server. Gespeicherte Daten werden angezeigt; Änderungen sind erst wieder möglich, wenn die Verbindung steht."
+  },
   "notifications": {
     "title": "Benachrichtigungen",
     "empty": "Keine Benachrichtigungen.",

@@ -75,6 +75,9 @@
     "share": "Share…",
     "save": "Save"
   },
+  "offline": {
+    "banner": "No connection to the server. Showing saved data; changes are not possible until it is back."
+  },
   "notifications": {
     "title": "Notifications",
     "empty": "No notifications.",
