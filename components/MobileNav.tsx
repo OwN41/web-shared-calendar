@@ -53,12 +53,12 @@ export function MobileNav({
       </button>
       {open &&
         createPortal(
-          <div className="fixed inset-x-0 bottom-0 z-20" style={{ top }}>
+          <div className="fixed inset-x-0 top-0 z-20 h-dvh" style={{ top, height: `calc(100dvh - ${top}px)` }}>
             <div className="absolute inset-0 bg-black/40" onClick={close} />
             <aside
               role="dialog"
               aria-label={labels.menu}
-              className="absolute inset-y-0 left-0 flex w-64 max-w-[80vw] flex-col gap-1 border-r border-zinc-200 bg-white p-3 shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+              className="absolute inset-y-0 left-0 flex w-64 max-w-[80vw] flex-col gap-1 border-r border-zinc-200 bg-white p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
             >
               <nav className="flex flex-col text-sm">
                 {links.map((l) => (

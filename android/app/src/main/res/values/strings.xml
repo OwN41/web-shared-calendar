@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Family Calendar</string>
+    <string name="title_activity_main">Family Calendar</string>
+    <string name="package_name">home.familycalendar</string>
+    <string name="custom_url_scheme">home.familycalendar</string>
+</resources>

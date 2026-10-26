@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { ApkDownload } from "@/components/ApkDownload";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { OfflineSupport } from "@/components/OfflineSupport";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -31,6 +32,7 @@ export default async function RegisterPage({ searchParams }: PageProps<"/registe
           {t("alreadyRegistered")} <Link href="/login" className="text-blue-600">{t("login")}</Link>
         </p>
       </form>
+      <ApkDownload />
       <div className="flex items-center gap-1"><LanguageSwitcher /><ThemeToggle /></div>
     </main>
   );

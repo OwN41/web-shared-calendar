@@ -34,3 +34,26 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# capacitor / native builds (keep android/ and ios/ sources, ignore build output)
+/android/.gradle/
+/android/.idea/
+/android/.kotlin/
+/android/build/
+/android/app/build/
+/android/local.properties
+/android/captures/
+/android/app/src/main/assets/public/
+/android/app/src/main/assets/capacitor.config.json
+/android/app/src/main/assets/capacitor.plugins.json
+/android/capacitor-cordova-android-plugins/
+/ios/App/Pods/
+/ios/App/build/
+/ios/App/App/public/
+/ios/App/App/capacitor.config.json
+/ios/DerivedData/
+/ios/capacitor-cordova-ios-plugins/
+*.apk
+*.aab
+*.keystore
+*.jks

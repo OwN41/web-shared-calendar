@@ -25,6 +25,8 @@
   "auth": {
     "login": "Anmelden",
     "email": "E-Mail",
+    "emailOrName": "E-Mail oder Name",
+    "downloadApp": "Android-App herunterladen",
     "password": "Passwort",
     "noAccount": "Noch kein Konto?",
     "register": "Registrieren",

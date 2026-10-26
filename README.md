@@ -5,7 +5,8 @@ appointments with groups, and sees a combined view of what others shared.
 
 ## Features
 
-- Registration and login with email and password (the first account becomes admin)
+- Registration and login with email and password (login works with email or
+  name; the first account becomes admin)
 - Month calendar; double-click a day to create an appointment
 - Appointments with date/time (24h), all-day switch, location (with address
   suggestions and a Google Maps link), note, own color and repeat
@@ -13,8 +14,8 @@ appointments with groups, and sees a combined view of what others shared.
 - Invitations: invite people you share a group with; they accept or decline,
   and accepted appointments appear in their calendar. Invitees and their
   answers are listed on the appointment
-- Reminders: several per appointment (5 min to 1 week presets or custom),
-  shown in the bell and as local notifications in the mobile app
+- Reminders: several per appointment (15 min to 1 week presets or a custom
+  value), shown in the bell and as local notifications in the mobile app
 - Notification bell with a live badge for new invitations and answers
 - Groups: share appointments with one or more groups (invite codes can be
   copied); "Shared" page shows what is shared with you
@@ -31,8 +32,8 @@ appointments with groups, and sees a combined view of what others shared.
 ## Tech stack
 
 Next.js 16 (App Router, server actions), React 19, TypeScript, Tailwind CSS 4,
-Prisma 6 with PostgreSQL, next-intl. Capacitor is included for optional
-iOS/Android wrapping.
+Prisma 6 with PostgreSQL, next-intl. Capacitor wraps the site as an Android/iOS
+app (see "Mobile app").
 
 > This Next.js version has breaking changes compared to older releases. See
 > `node_modules/next/dist/docs/` before changing framework-level code.
@@ -89,8 +90,35 @@ otherwise the Prisma engine file may be locked.
 | ---------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`         | yes      | PostgreSQL connection string, e.g. `postgresql://user:password@localhost:5432/shared_calendar`. URL-encode special characters in the password. |
 | `COLLECTION_DATES_URL` | no       | URL of an ICS feed with waste collection dates. Shown in "My calendar" only. Without it, no waste chips are shown.                             |
+| `CAP_SERVER_URL`       | mobile   | Address of this server for the Capacitor app, e.g. `http://192.168.178.34:3000` (LAN IP or hostname, not `localhost`). Read by `npm run cap:sync` and the dev server's allowed origins. |
 
 Never commit `.env.local`.
+
+## Mobile app (Capacitor)
+
+To let family members install the Android app from the site, build the APK and
+copy it to `downloads/family-calendar.apk` on the server (git-ignored). The
+login and register pages then show a "Download the Android app" link
+(`/api/apk`); it is hidden while the file is missing.
+
+The Android/iOS app is a thin native shell that loads this site from your
+server, so the app needs no store release and updates whenever the server does.
+The project ids are in `capacitor.config.ts` (`appId` is `home.familycalendar`;
+don't change it after the native projects exist).
+
+1. Put the server address in `.env.local`: `CAP_SERVER_URL=http://<server-ip>:3000`.
+2. Run the server so the phone can reach it, e.g. `npm run build` and
+   `npm start -- -H 0.0.0.0`, and allow the port in the firewall. Use a fixed
+   IP for the server.
+3. Sync the native projects: `npm run cap:sync` (re-run it whenever
+   `CAP_SERVER_URL` changes, then rebuild the app).
+4. Open and run: `npx cap open android` (Android Studio) or `npx cap open ios`
+   (needs a Mac with Xcode).
+
+`android/` and `ios/` are committed; build output and generated config are
+ignored. `capacitor-www/index.html` is only a placeholder that Capacitor
+requires; with `CAP_SERVER_URL` set it is never shown. Reminders become local
+notifications inside the app (see "How it works").
 
 ## Scripts
 
@@ -100,6 +128,7 @@ Never commit `.env.local`.
 | `npm run build` / `npm start`            | Production build and server                |
 | `npm run lint`                           | ESLint                                     |
 | `npm run db:migrate`                     | Apply migrations (`prisma migrate deploy`) |
+| `npm run cap:sync`                       | Sync web config and plugins to android/ios |
 | `npx tsc --noEmit`                       | Type check                                 |
 | `npx prisma migrate dev --name <change>` | Create a new migration during development  |
 
@@ -114,17 +143,22 @@ app/
   (app)/            Pages behind login: calendar, shared, groups, settings, admin
   api/places/       Authenticated proxy for location suggestions (Photon/OSM)
   api/notifications/ Notification count (polled by the bell)
+  api/reminders/    Upcoming reminders (scheduled as local notifications by the app)
   api/health/       Database reachability check (used for offline mode)
   login/, register/ Public auth pages
   layout.tsx        Locale, theme cookie, global providers
-components/         UI: CalendarBoard, MonthView, EventForm, EventList,
-                    DateTimeInput, LocationInput, Nav, MobileNav,
-                    Notifications, NotificationBell, OfflineSupport, ...
+components/         UI: CalendarBoard, MonthView, EventForm, ReminderPicker,
+                    EventList, DateTimeInput, LocationInput, Nav, MobileNav,
+                    Notifications, NotificationBell, LocalReminders,
+                    OfflineSupport, ...
 public/sw.js        Service worker (page cache for offline mode)
+android/, ios/      Capacitor native projects
+capacitor-www/      Placeholder web dir required by Capacitor
 lib/
   actions.ts        Server actions (auth, events, groups, profile, admin)
   auth.ts           Sessions, password hashing, login throttling
-  queries.ts        Data queries and recurrence expansion
+  clock.ts          Time zone cookie and "floating now"
+  queries.ts        Data queries, recurrence expansion, reminders
   recurrence.ts     Repeat rules (daily/weekly/monthly/yearly)
   waste.ts          ICS parsing for waste collection dates
   dates.ts          Date formatting helpers
@@ -138,11 +172,12 @@ prisma/
 ## How it works
 
 - **Data model:** `User`, `Session`, `Group`, `GroupMember`, `Event`,
-  `EventShare` (which groups an event is shared with) and `EventInvite`
+  `EventShare` (which groups an event is shared with), `EventInvite`
   (invited user, status `pending`/`accepted`/`declined`, and whether the owner
-  has seen the answer).
+  has seen the answer), `EventReminder` and `ReminderSeen`.
 - **Auth:** passwords are hashed; a random session token is stored in an
-  HTTP-only cookie and only its hash is saved in the database. Repeated failed
+  HTTP-only cookie and only its hash is saved in the database. Login accepts
+  the email or the (case-insensitive) name. Repeated failed
   logins are throttled. Changing the password signs out other devices.
 - **Time handling:** appointment times are "floating": the entered wall-clock
   time is stored and shown as-is, independent of time zone.
@@ -159,7 +194,7 @@ prisma/
   when the tab regains focus.
 - **Editing:** editing a repeating appointment changes the whole series.
   Existing invitees keep their answer; removed invitees are deleted.
-- **Reminders:** an appointment can have several reminders (presets from 5
+- **Reminders:** an appointment can have several reminders (presets from 15
   minutes to 1 week, or a custom value) stored in `EventReminder`. They apply
   to the owner and to invitees who accepted, and fire for every occurrence of
   a repeating appointment. A due reminder appears in the bell (dismissals are

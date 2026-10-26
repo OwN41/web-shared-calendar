@@ -92,25 +92,33 @@ export async function register(fd: FormData) {
 
 export async function login(fd: FormData) {
   const t = await getTranslations("errors");
-  const email = str(fd, "login").toLowerCase();
+  const identifier = str(fd, "login");
+  const key = identifier.toLowerCase();
   const password = String(fd.get("password") ?? "");
-  if (loginThrottled(email)) fail("/login", t("tooManyAttempts"));
+  if (loginThrottled(key)) fail("/login", t("tooManyAttempts"));
 
-  const user = await prisma.user.findUnique({
-    where: { email },
+  // Names aren't unique, so every account with that name is tried against the password.
+  const candidates = await prisma.user.findMany({
+    where: identifier.length > 200
+      ? { id: "" }
+      : { OR: [{ email: key }, { name: { equals: identifier, mode: "insensitive" } }] },
     select: { id: true, passwordHash: true, disabled: true },
+    take: 10,
   });
-  if (!user) {
-    recordLoginFailure(email);
-    return fail("/login", t("invalidLogin"));
+  let user: (typeof candidates)[number] | undefined;
+  for (const c of candidates) {
+    if (await verifyPassword(password, c.passwordHash)) {
+      user = c;
+      break;
+    }
   }
-  if (!(await verifyPassword(password, user.passwordHash))) {
-    recordLoginFailure(email);
+  if (!user) {
+    recordLoginFailure(key);
     return fail("/login", t("invalidLogin"));
   }
   if (user.disabled) return fail("/login", t("disabled"));
 
-  clearLoginFailures(email);
+  clearLoginFailures(key);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await createSession(user.id);
   redirect("/calendar");

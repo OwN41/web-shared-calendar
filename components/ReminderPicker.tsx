@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
-const PRESETS = [5, 10, 15, 30, 60, 1440, 10080];
+const PRESETS = [15, 30, 60, 1440, 10080];
 const UNITS = { minutes: 1, hours: 60, days: 1440, weeks: 10080 } as const;
 const MAX = 525_600;
 
@@ -62,7 +62,7 @@ export function ReminderPicker({ defaultValue = [] }: { defaultValue?: number[] 
           );
         })}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-nowrap items-center gap-2">
         <input
           type="number"
           min={1}
@@ -78,13 +78,13 @@ export function ReminderPicker({ defaultValue = [] }: { defaultValue?: number[] 
           }}
           aria-label={t("customAmount")}
           placeholder={t("custom")}
-          className="w-24 rounded-md border border-zinc-300 bg-transparent px-2 py-1 dark:border-zinc-700"
+          className="w-16 min-w-0 shrink rounded-md border border-zinc-300 bg-transparent px-2 py-1 dark:border-zinc-700"
         />
         <select
           value={unit}
           onChange={(e) => setUnit(e.target.value as Unit)}
           aria-label={t("customUnit")}
-          className="rounded-md border border-zinc-300 bg-transparent px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+          className="min-w-0 rounded-md border border-zinc-300 bg-transparent px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
         >
           {(Object.keys(UNITS) as Unit[]).map((u) => (
             <option key={u} value={u}>{t(`unit.${u}`)}</option>
@@ -94,7 +94,7 @@ export function ReminderPicker({ defaultValue = [] }: { defaultValue?: number[] 
           type="button"
           onClick={add}
           disabled={!valid}
-          className="rounded-md border border-zinc-300 px-3 py-1 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="shrink-0 whitespace-nowrap rounded-md border border-zinc-300 px-3 py-1 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
           {t("addReminder")}
         </button>

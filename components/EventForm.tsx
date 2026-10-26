@@ -53,7 +53,7 @@ export function EventForm({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 pt-[calc(env(safe-area-inset-top)+3.5rem)]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <form

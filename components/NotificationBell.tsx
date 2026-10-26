@@ -75,7 +75,7 @@ export function NotificationBell({
   }, []);
 
   return (
-    <details ref={ref} className="relative">
+    <details ref={ref} className="sm:relative">
       <summary
         title={label}
         aria-label={count > 0 ? `${label} (${count})` : label}
@@ -91,7 +91,7 @@ export function NotificationBell({
           </span>
         )}
       </summary>
-      <div className="fixed left-2 right-2 top-12 z-40 max-h-[70vh] overflow-y-auto rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-lg dark:border-zinc-700 dark:bg-zinc-900 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1 sm:w-96">
+      <div className="absolute left-2 right-2 top-full z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-lg dark:border-zinc-700 dark:bg-zinc-900 sm:left-auto sm:right-0 sm:w-96">
         {children}
       </div>
     </details>
