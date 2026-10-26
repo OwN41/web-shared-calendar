@@ -39,7 +39,11 @@
   <script>
     // Shown by the Capacitor app when the server can't be reached. Pages are saved by components/NativeSnapshot.tsx.
     (function () {
-      var P = window.Capacitor && (window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin("Preferences") : window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences);
+      // Only the injected native bridge exists on this page (no bundled @capacitor/core), so call the plugin through it.
+      var cap = window.Capacitor;
+      var P = cap && cap.nativePromise ? {
+        get: function (o) { return cap.nativePromise("Preferences", "get", o); }
+      } : null;
       var TEXT = {
         en: {
           offline: "Offline. Showing saved data from {time}. It updates automatically when the server is reachable again.",
