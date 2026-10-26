@@ -79,8 +79,8 @@ export function CalendarBoard({
 
   return (
     <div className="space-y-3">
-    {wasteTypes.length > 0 && (
-      <div className="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label={t("waste")}>
+    {(wasteTypes.length > 0 || basePath === "/calendar") && (
+      <div className="flex min-h-[30px] flex-wrap items-center gap-2 text-sm" role="group" aria-label={t("waste")}>
         <span className="text-zinc-500">{t("waste")}:</span>
         {wasteTypes.map(([type, color]) => {
           const on = !hiddenWaste.includes(type);

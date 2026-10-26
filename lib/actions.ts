@@ -27,7 +27,6 @@ const str = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const fail = (path: string, msg: string): never =>
   redirect(`${path}?error=${encodeURIComponent(msg)}`);
 const COLOR = /^#[0-9a-fA-F]{6}$/;
-const USERNAME = /^[a-z0-9_.-]{3,30}$/;
 
 /* ---------- language ---------- */
 
@@ -57,12 +56,10 @@ export async function register(fd: FormData) {
   const t = await getTranslations("errors");
   const name = str(fd, "name");
   const email = str(fd, "email").toLowerCase();
-  const username = str(fd, "username").toLowerCase();
   const password = String(fd.get("password") ?? "");
   const color = COLOR.test(str(fd, "color")) ? str(fd, "color") : "#3b82f6";
 
   if (!name || name.length > 80) fail("/register", t("name"));
-  if (!USERNAME.test(username)) fail("/register", t("username"));
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)
     fail("/register", t("email"));
   if (password.length < 8 || password.length > 200)
@@ -77,17 +74,13 @@ export async function register(fd: FormData) {
     user = await prisma.$transaction(async (tx) => {
       const role = (await tx.user.count()) === 0 ? "admin" : "user";
       return tx.user.create({
-        data: { email, username, name, passwordHash: hash, color, role },
+        data: { email, name, passwordHash: hash, color, role },
         select: { id: true },
       });
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const target = String(error.meta?.target ?? "");
-      fail(
-        "/register",
-        target.includes("username") ? t("usernameTaken") : t("emailTaken"),
-      );
+      fail("/register", t("emailTaken"));
     }
     throw error;
   }
@@ -102,7 +95,7 @@ export async function login(fd: FormData) {
   if (loginThrottled(email)) fail("/login", t("tooManyAttempts"));
 
   const user = await prisma.user.findUnique({
-    where: email.includes("@") ? { email } : { username: email },
+    where: { email },
     select: { id: true, passwordHash: true, disabled: true },
   });
   if (!user) {

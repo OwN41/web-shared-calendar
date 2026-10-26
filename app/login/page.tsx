@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <form action={login} className={`${cardCls} w-full max-w-sm space-y-4`}>
         <h1 className="text-xl font-semibold">{t("login")}</h1>
         <ErrorBanner message={typeof error === "string" ? error : undefined} />
-        <input name="login" required autoComplete="username" placeholder={t("loginField")} className={inputCls} />
+        <input name="login" type="email" required autoComplete="email" placeholder={t("email")} className={inputCls} />
         <input name="password" type="password" required autoComplete="current-password" placeholder={t("password")} className={inputCls} />
         <button className={`${btnCls} w-full`}>{t("login")}</button>
         <p className="text-center text-sm">

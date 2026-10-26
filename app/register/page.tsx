@@ -17,7 +17,6 @@ export default async function RegisterPage({ searchParams }: PageProps<"/registe
         <h1 className="text-xl font-semibold">{t("createAccount")}</h1>
         <ErrorBanner message={typeof error === "string" ? error : undefined} />
         <input name="name" required maxLength={80} autoComplete="name" placeholder={t("yourName")} className={inputCls} />
-        <input name="username" required minLength={3} maxLength={30} pattern="[A-Za-z0-9_.\-]+" autoComplete="username" placeholder={t("username")} className={inputCls} />
         <input name="email" type="email" required autoComplete="email" placeholder={t("email")} className={inputCls} />
         <input name="password" type="password" required minLength={8} autoComplete="new-password" placeholder={t("passwordMin")} className={inputCls} />
         <input name="confirm" type="password" required minLength={8} autoComplete="new-password" placeholder={t("confirmPassword")} className={inputCls} />
