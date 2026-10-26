@@ -6,7 +6,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const serverUrl = process.env.CAP_SERVER_URL;
 
 const config: CapacitorConfig = {
-  appId: 'com.example.app',
+  appId: 'home.familycalendar',
   appName: 'Family Calendar',
   webDir: 'public',
   server: serverUrl

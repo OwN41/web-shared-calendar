@@ -4,6 +4,7 @@ import { floatingNow, tzOffset } from "@/lib/clock";
 import { formatDay, formatTime } from "@/lib/dates";
 import { dueReminders, inviteResponses, pendingInvites } from "@/lib/queries";
 import { NotificationBell } from "./NotificationBell";
+import { LocalReminders } from "./LocalReminders";
 import { btnCls, btnGhostCls } from "./ui";
 
 export async function Notifications({ userId }: { userId: string }) {
@@ -27,7 +28,9 @@ export async function Notifications({ userId }: { userId: string }) {
   const alerts = reminders.map((r) => ({ key: r.key, title: r.title, body: when(r.occ_start) }));
 
   return (
-    <NotificationBell count={count} label={t("title")} alerts={alerts} tz={await tzOffset()}>
+    <>
+    <LocalReminders />
+    <NotificationBell count={count} label={t("title")} tz={await tzOffset()}>
       {count === 0 && <p className="text-zinc-500">{t("empty")}</p>}
       {reminders.length > 0 && (
         <section className="mb-4 space-y-3 border-b border-zinc-200 pb-3 dark:border-zinc-700">
@@ -109,5 +112,6 @@ export async function Notifications({ userId }: { userId: string }) {
         </section>
       )}
     </NotificationBell>
+    </>
   );
 }

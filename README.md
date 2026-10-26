@@ -14,7 +14,7 @@ appointments with groups, and sees a combined view of what others shared.
   and accepted appointments appear in their calendar. Invitees and their
   answers are listed on the appointment
 - Reminders: several per appointment (5 min to 1 week presets or custom),
-  shown in the bell and optionally as device alerts
+  shown in the bell and as local notifications in the mobile app
 - Notification bell with a live badge for new invitations and answers
 - Groups: share appointments with one or more groups (invite codes can be
   copied); "Shared" page shows what is shared with you
@@ -164,10 +164,16 @@ prisma/
   to the owner and to invitees who accepted, and fire for every occurrence of
   a repeating appointment. A due reminder appears in the bell (dismissals are
   stored in `ReminderSeen`). Because times are floating, "now" is computed
-  from the browser's time zone offset, which is saved in a `tz` cookie. Optional
-  device alerts use the browser Notification API once permission is granted.
-  Reminders are only detected while the app is open in a tab (polled every 10
-  seconds); there is no background push.
+  from the browser's time zone offset, which is saved in a `tz` cookie.
+  Inside the Capacitor app only (not in browsers), reminders also become
+  on-device local notifications: the app asks for notification permission,
+  fetches the next 14 days of reminders from `/api/reminders` (when opened,
+  every minute while open, and when it returns to the foreground) and
+  schedules them with `@capacitor/local-notifications`. Scheduled alerts keep
+  firing while the app is closed or offline, but changes made elsewhere only
+  reach the phone the next time the app is opened. No Firebase, push service
+  or extra server component is needed. On Android 12+ allow "Alarms &
+  reminders" for the app for exact timing.
 - **Offline mode:** `public/sw.js` is registered in production builds only.
   Pages are fetched from the network first and fall back to the saved copy
   when the server is unreachable, slow, or answers with a 5xx error. A banner

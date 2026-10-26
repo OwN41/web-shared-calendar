@@ -180,6 +180,51 @@ export async function dueReminders(userId: string, floatingNow: Date): Promise<D
   return due.sort((a, b) => a.occ_start.getTime() - b.occ_start.getTime() || a.minutes - b.minutes);
 }
 
+export type UpcomingReminder = { key: string; title: string; fire: string; start: string };
+
+/** Future reminders within `days`, as floating wall-clock ISO strings, for the mobile app to schedule locally. */
+export async function upcomingReminders(userId: string, floatingNow: Date, days = 14): Promise<UpcomingReminder[]> {
+  const events = await prisma.event.findMany({
+    where: {
+      reminders: { some: {} },
+      OR: [{ ownerId: userId }, { invites: { some: { userId, status: "accepted" } } }],
+    },
+    select: {
+      id: true,
+      title: true,
+      startsAt: true,
+      endsAt: true,
+      repeat: true,
+      reminders: { select: { minutes: true } },
+    },
+  });
+  const seen = await prisma.reminderSeen.findMany({
+    where: { userId },
+    select: { eventId: true, minutes: true, occStart: true },
+  });
+  const seenKeys = new Set(seen.map((s) => `${s.eventId}:${s.minutes}:${s.occStart.getTime()}`));
+  const horizon = new Date(floatingNow.getTime() + days * 86_400_000);
+  const out: (UpcomingReminder & { at: number })[] = [];
+  for (const event of events) {
+    const repeat = isRepeat(event.repeat) ? event.repeat : "none";
+    const max = Math.max(...event.reminders.map((r) => r.minutes));
+    const to = new Date(horizon.getTime() + max * 60000);
+    for (const occ of occurrences(event.startsAt, event.endsAt, repeat, floatingNow, to)) {
+      for (const { minutes } of event.reminders) {
+        const at = occ.start.getTime() - minutes * 60000;
+        if (at <= floatingNow.getTime() || at > horizon.getTime()) continue;
+        const key = `${event.id}:${minutes}:${occ.start.getTime()}`;
+        if (seenKeys.has(key)) continue;
+        out.push({ key, title: event.title, fire: new Date(at).toISOString(), start: occ.start.toISOString(), at });
+      }
+    }
+  }
+  return out
+    .sort((a, b) => a.at - b.at)
+    .slice(0, 60)
+    .map((r) => ({ key: r.key, title: r.title, fire: r.fire, start: r.start }));
+}
+
 export async function notificationCount(userId: string, floatingNow: Date) {
   const [pending, responses, reminders] = await Promise.all([
     prisma.eventInvite.count({ where: { userId, status: "pending" } }),

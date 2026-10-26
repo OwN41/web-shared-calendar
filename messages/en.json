@@ -96,7 +96,7 @@
     "inMinutes": "Starts in {n, plural, one {# minute} other {# minutes}}",
     "inHours": "Starts in {n, plural, one {# hour} other {# hours}}",
     "inDays": "Starts in {n, plural, one {# day} other {# days}}",
-    "enableAlerts": "Enable device alerts for reminders"
+    "startsAt": "Starts at {time}"
   },
   "eventForm": {
     "invite": "Invite people",
