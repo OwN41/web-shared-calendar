@@ -112,7 +112,7 @@ export function CalendarBoard({
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </summary>
-            <div className="absolute left-0 z-20 mt-1 min-w-56 rounded-md border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="popup-enter absolute left-0 z-20 mt-1 min-w-56 rounded-md border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
               {wasteTypes.map(([type, color]) => (
                 <label key={type} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">
                   <input type="checkbox" checked={!hiddenWaste.includes(type)} onChange={() => toggleWaste(type)} className="h-4 w-4" />

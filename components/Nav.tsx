@@ -15,7 +15,7 @@ export async function Nav({ user }: { user: User }) {
     { href: "/groups", label: t("groups") },
     ...(user.role === "admin" ? [{ href: "/admin", label: t("admin") }] : []),
   ];
-  const linkCls = "rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800";
+  const linkCls = "rounded-md px-3 py-1.5 transition-colors hover:bg-zinc-100 active:scale-95 dark:hover:bg-zinc-800";
   return (
     <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/90 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
       <div className="flex w-full items-center gap-2 px-3 py-1.5 sm:px-8 md:gap-4 md:py-2 lg:px-12">

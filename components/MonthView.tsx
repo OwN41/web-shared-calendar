@@ -71,7 +71,7 @@ export function MonthView({
                   onSelect(k);
                 }
               }}
-              className={`min-h-20 cursor-pointer select-none border-t border-l border-zinc-200 p-1 [touch-action:manipulation] dark:border-zinc-800 sm:min-h-28 lg:min-h-[calc((100dvh-14rem)/6)] ${
+              className={`min-h-20 cursor-pointer select-none border-t border-l border-zinc-200 p-1 transition-colors duration-150 [touch-action:manipulation] dark:border-zinc-800 sm:min-h-28 lg:min-h-[calc((100dvh-14rem)/6)] ${
                 inMonth ? "" : "bg-zinc-50 text-zinc-400 dark:bg-zinc-950"
               } ${isSelected ? "bg-blue-50 ring-2 ring-inset ring-blue-500 dark:bg-blue-950/40" : "hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}
             >
@@ -81,7 +81,7 @@ export function MonthView({
               <div className="space-y-0.5">
                 {list.slice(0, 3).map((e) => (
                   <div key={e.occ} title={showOwner ? `${e.title} (${e.owner_name})` : e.title}
-                    className="truncate rounded px-1 py-0.5 text-[11px] text-white"
+                    className="truncate rounded px-1 py-0.5 text-[11px] text-white shadow-sm transition-transform duration-150 hover:scale-[1.03]"
                     style={{ background: e.owner_color }}>
                     {e.title}
                   </div>

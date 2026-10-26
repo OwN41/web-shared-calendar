@@ -53,14 +53,14 @@ export function EventForm({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 pt-[calc(env(safe-area-inset-top)+3.5rem)]"
+      className="modal-backdrop fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 pt-[calc(env(safe-area-inset-top)+3.5rem)]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <form
         action={event ? updateEvent : createEvent}
         role="dialog"
         aria-label={event ? t("editTitle") : t("title")}
-        className="grid max-h-full w-full max-w-lg gap-3 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 sm:grid-cols-2"
+        className="modal-panel grid max-h-full w-full max-w-lg gap-3 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 sm:grid-cols-2"
       >
         <h2 className="font-semibold sm:col-span-2">{event ? t("editTitle") : t("title")}</h2>
         <input type="hidden" name="back" value={back} />
