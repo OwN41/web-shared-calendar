@@ -23,11 +23,15 @@ appointments with groups, and sees a combined view of what others shared.
 - Profile settings: name, email, password and calendar color
 - English and German (cookie-based, switchable in the header), dark/light theme
 - Responsive layout with a side drawer navigation on mobile; touch devices get
-  a "New appointment" button instead of double-click
+  a "New appointment" button instead of double-click; smooth page, menu and
+  dropdown animations (disabled with "reduce motion"); the Android back
+  button closes the appointment form
 - Optional waste collection dates from an ICS feed, with per-type filters
-  (a dropdown on mobile)
+  (a dropdown with colored checkboxes on mobile)
 - Offline mode: visited pages are cached and shown read-only when the server or
   database is unreachable, then refreshed automatically when it is back
+- Android app (Capacitor) with local reminder notifications, downloadable
+  from the login page of your own server
 
 ## Tech stack
 
@@ -96,29 +100,45 @@ Never commit `.env.local`.
 
 ## Mobile app (Capacitor)
 
-To let family members install the Android app from the site, build the APK and
-copy it to `downloads/family-calendar.apk` on the server (git-ignored). The
-login and register pages then show a "Download the Android app" link
-(`/api/apk`); it is hidden while the file is missing.
-
 The Android/iOS app is a thin native shell that loads this site from your
 server, so the app needs no store release and updates whenever the server does.
 The project ids are in `capacitor.config.ts` (`appId` is `home.familycalendar`;
-don't change it after the native projects exist).
+don't change it after the native projects exist). The app name follows the
+device language on Android (Family Calendar / Familienkalender).
 
 1. Put the server address in `.env.local`: `CAP_SERVER_URL=http://<server-ip>:3000`.
 2. Run the server so the phone can reach it, e.g. `npm run build` and
    `npm start -- -H 0.0.0.0`, and allow the port in the firewall. Use a fixed
    IP for the server.
 3. Sync the native projects: `npm run cap:sync` (re-run it whenever
-   `CAP_SERVER_URL` changes, then rebuild the app).
+   `CAP_SERVER_URL` or a Capacitor plugin changes, then rebuild the app).
 4. Open and run: `npx cap open android` (Android Studio) or `npx cap open ios`
    (needs a Mac with Xcode).
 
 `android/` and `ios/` are committed; build output and generated config are
 ignored. `capacitor-www/index.html` is only a placeholder that Capacitor
 requires; with `CAP_SERVER_URL` set it is never shown. Reminders become local
-notifications inside the app (see "How it works").
+notifications inside the app (see "How it works"), and the Android back button
+closes an open appointment form before navigating back.
+
+### Building and distributing the Android APK
+
+1. Run `npm run cap:sync`.
+2. Build with Gradle from `android/`: `.\gradlew.bat assembleDebug` (macOS and
+   Linux: `./gradlew assembleDebug`). Use a JDK 17-21; Gradle 8.14 does not run
+   on Java 25, which newer Android Studio versions bundle. Set `JAVA_HOME` to a
+   Java 21 JDK if needed. The result is
+   `android/app/build/outputs/apk/debug/app-debug.apk`.
+3. Copy it to `downloads/family-calendar.apk` on the server (git-ignored).
+   The login and register pages then show a "Download the Android app" link
+   (served by `/api/apk`) to visitors using an Android browser. The link is
+   hidden in other browsers, inside the app, and while the file is missing.
+4. On the phone, open the link, install the APK and allow "Install unknown
+   apps" for the browser. Rebuild the APK only when `CAP_SERVER_URL`, plugins
+   or native settings change; web changes arrive without reinstalling.
+
+Icons are generated from one drawing: `node scripts/generate-icons.mjs`
+rewrites the browser, Android and iOS icons.
 
 ## Scripts
 
@@ -144,20 +164,24 @@ app/
   api/places/       Authenticated proxy for location suggestions (Photon/OSM)
   api/notifications/ Notification count (polled by the bell)
   api/reminders/    Upcoming reminders (scheduled as local notifications by the app)
+  api/apk/          Serves downloads/family-calendar.apk
   api/health/       Database reachability check (used for offline mode)
   login/, register/ Public auth pages
   layout.tsx        Locale, theme cookie, global providers
 components/         UI: CalendarBoard, MonthView, EventForm, ReminderPicker,
                     EventList, DateTimeInput, LocationInput, Nav, MobileNav,
-                    Notifications, NotificationBell, LocalReminders,
-                    OfflineSupport, ...
+                    Dropdown, Notifications, NotificationBell, LocalReminders,
+                    NativeBack, ApkDownload, OfflineSupport, ...
 public/sw.js        Service worker (page cache for offline mode)
 android/, ios/      Capacitor native projects
 capacitor-www/      Placeholder web dir required by Capacitor
+downloads/          Put the built family-calendar.apk here (git-ignored)
+scripts/            generate-icons.mjs (browser and app icons)
 lib/
   actions.ts        Server actions (auth, events, groups, profile, admin)
   auth.ts           Sessions, password hashing, login throttling
   clock.ts          Time zone cookie and "floating now"
+  backStack.ts      Back-button handlers for dialogs (native Android back)
   queries.ts        Data queries, recurrence expansion, reminders
   recurrence.ts     Repeat rules (daily/weekly/monthly/yearly)
   waste.ts          ICS parsing for waste collection dates
