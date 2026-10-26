@@ -33,7 +33,7 @@ export function EventList({
                   <div className="mt-0.5 space-y-0.5 text-sm text-zinc-600 dark:text-zinc-400">
                     <div>
                       {formatDay(e.starts_at, locale)}
-                      {e.all_day ? ` · ${t("allDay")}` : ` · ${formatTime(e.starts_at, locale)}–${formatTime(e.ends_at, locale)}`}
+                      {e.all_day ? ` · ${t("allDay")}` : ` · ${formatTime(e.starts_at)}–${formatTime(e.ends_at)}`}
                       {e.repeat !== "none" && ` · ↻ ${t(`repeat_${e.repeat}`)}`}
                     </div>
                     {e.location && (

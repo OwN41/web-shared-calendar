@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { REPEATS } from "@/lib/recurrence";
 import type { Group } from "@/lib/queries";
 import { createEvent } from "@/lib/actions";
+import { DateTimeInput } from "./DateTimeInput";
 import { LocationInput } from "./LocationInput";
 import { btnCls, btnGhostCls, inputCls } from "./ui";
 
@@ -50,12 +51,8 @@ export function EventForm({
         <h2 className="font-semibold sm:col-span-2">{t("title")}</h2>
         <input type="hidden" name="back" value={back} />
         <input name="title" required autoFocus maxLength={200} placeholder={t("titlePlaceholder")} className={`${inputCls} sm:col-span-2`} />
-        <label className="text-sm">{t("starts")}
-          <input type="datetime-local" name="starts_at" required defaultValue={`${day}T09:00`} className={inputCls} />
-        </label>
-        <label className="text-sm">{t("ends")}
-          <input type="datetime-local" name="ends_at" defaultValue={`${day}T10:00`} className={inputCls} />
-        </label>
+        <DateTimeInput name="starts_at" label={t("starts")} required defaultValue={`${day}T09:00`} />
+        <DateTimeInput name="ends_at" label={t("ends")} defaultValue={`${day}T10:00`} />
         <label className="flex cursor-pointer items-center justify-between gap-3 text-sm sm:col-span-2">
           {t("allDay")}
           <input type="checkbox" name="all_day" role="switch" className="peer sr-only" />
