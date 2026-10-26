@@ -49,6 +49,41 @@ app (see "Mobile app").
 
 ## Setup
 
+### Automatic
+
+Installs Node.js and PostgreSQL if missing, creates the database and
+`.env.local`, installs packages and applies the migrations:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+```sh
+bash scripts/setup.sh   # Debian/Ubuntu, Fedora, Arch
+```
+
+### Production build and run
+
+Installs anything that is missing first (Node.js and PostgreSQL via the setup
+script, plus JDK 21 and the Android SDK for the APK; may need admin/sudo), then
+applies migrations, builds the APK into `downloads/family-calendar.apk`
+(skipped with a warning if `CAP_SERVER_URL` is missing or the APK build fails),
+builds the app and starts it on `0.0.0.0:3000`. `DATABASE_URL` and
+`CAP_SERVER_URL` are taken from `.env.local`, where the setup script wrote the
+values you entered; `-DatabaseUrl` / `--database-url=` and `-ServerUrl` /
+`--server-url=` overwrite them there. Options: `-SkipApk` /
+`--skip-apk`, `-NoStart` / `--no-start`, `-Port` / `PORT`.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\deploy.ps1
+```
+
+```sh
+bash scripts/deploy.sh
+```
+
+### Manual
+
 1. Install dependencies:
 
    ```sh
