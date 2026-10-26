@@ -39,7 +39,7 @@
   <script>
     // Shown by the Capacitor app when the server can't be reached. Pages are saved by components/NativeSnapshot.tsx.
     (function () {
-      var P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences;
+      var P = window.Capacitor && (window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin("Preferences") : window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences);
       var TEXT = {
         en: {
           offline: "Offline. Showing saved data from {time}. It updates automatically when the server is reachable again.",
@@ -122,9 +122,9 @@
         if (!state.server) return Promise.resolve();
         var ctl = new AbortController();
         var timer = setTimeout(function () { ctl.abort(); }, 4000);
-        // no-cors: the response is opaque, but the promise only resolves when the server was reached.
-        return fetch(state.server + "/api/health", { mode: "no-cors", cache: "no-store", signal: ctl.signal })
-          .then(function () { clearTimeout(timer); location.replace(state.server + (state.current || "/")); })
+        // The health route allows cross-origin reads, so a 503 (database down) counts as "not back yet".
+        return fetch(state.server + "/api/health", { cache: "no-store", signal: ctl.signal })
+          .then(function (r) { clearTimeout(timer); if (r.ok) location.replace(state.server + (state.current || "/")); })
           .catch(function () { clearTimeout(timer); });
       }
 
@@ -145,6 +145,7 @@
           return last ? show(last) : false;
         }).then(function (ok) {
           if (!ok) showNone();
+          tryServer();
           setInterval(tryServer, 8000);
         }).catch(showNone);
       }
