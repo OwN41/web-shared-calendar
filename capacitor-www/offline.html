@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Family Calendar</title>
+  <style>
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
+    #offline-bar {
+      position: sticky; top: 0; z-index: 100; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      padding: calc(env(safe-area-inset-top) + 8px) 12px 8px; background: #fef3c7; color: #78350f;
+      font-size: 14px; border-bottom: 1px solid #fcd34d;
+    }
+    #offline-bar .msg { flex: 1 1 220px; }
+    #offline-bar button {
+      border: 1px solid #b45309; background: transparent; color: inherit; border-radius: 8px;
+      padding: 4px 10px; font-size: 13px;
+    }
+    #offline-bar .tabs { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+    #offline-bar .tabs button[aria-current="true"] { background: #b45309; color: #fff; }
+    #empty { padding: 32px 20px; text-align: center; font-size: 16px; }
+    #toast {
+      position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%);
+      background: #27272a; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; display: none; z-index: 101;
+    }
+    a, button, summary, label, input { cursor: default; }
+  </style>
+  <style id="app-css"></style>
+</head>
+<body>
+  <div id="offline-bar" role="status">
+    <span class="msg" id="msg"></span>
+    <button id="retry" type="button"></button>
+    <div class="tabs" id="tabs"></div>
+  </div>
+  <div id="empty" hidden></div>
+  <div id="snap"></div>
+  <div id="toast"></div>
+  <script>
+    // Shown by the Capacitor app when the server can't be reached. Pages are saved by components/NativeSnapshot.tsx.
+    (function () {
+      var P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences;
+      var TEXT = {
+        en: {
+          offline: "Offline. Showing saved data from {time}. It updates automatically when the server is reachable again.",
+          none: "The server can't be reached and nothing is saved yet. Connect to your network and reopen the app.",
+          retry: "Retry", unsaved: "This page isn't saved for offline use.", checking: "Checking...",
+          tabs: { "/calendar": "My calendar", "/shared": "Shared", "/groups": "Groups" }
+        },
+        de: {
+          offline: "Offline. Gespeicherte Daten von {time}. Wird automatisch aktualisiert, sobald der Server wieder erreichbar ist.",
+          none: "Der Server ist nicht erreichbar und es ist noch nichts gespeichert. Verbinde dich mit deinem Netzwerk und starte die App neu.",
+          retry: "Erneut versuchen", unsaved: "Diese Seite ist nicht offline gespeichert.", checking: "Prüfe...",
+          tabs: { "/calendar": "Mein Kalender", "/shared": "Geteilt", "/groups": "Gruppen" }
+        }
+      };
+      var state = { server: "", index: [], current: "", lang: "en" };
+
+      function get(key) { return P.get({ key: key }).then(function (r) { return r.value; }); }
+      function toast(text) {
+        var el = document.getElementById("toast");
+        el.textContent = text; el.style.display = "block";
+        clearTimeout(toast.t); toast.t = setTimeout(function () { el.style.display = "none"; }, 2500);
+      }
+      function T() { return TEXT[state.lang] || TEXT.en; }
+
+      function show(path) {
+        return get("snap:p:" + path).then(function (raw) {
+          if (!raw) return false;
+          var e = JSON.parse(raw);
+          state.current = path;
+          state.lang = (e.lang || "en").slice(0, 2) === "de" ? "de" : "en";
+          document.documentElement.lang = state.lang;
+          document.documentElement.className = e.htmlClass || "";
+          document.body.className = e.bodyClass || "";
+          document.getElementById("snap").innerHTML = e.body;
+          var when = new Date(e.time);
+          var time = when.toLocaleDateString(state.lang) + " " + when.toLocaleTimeString(state.lang, { hour: "2-digit", minute: "2-digit" });
+          document.getElementById("msg").textContent = T().offline.replace("{time}", time);
+          document.getElementById("retry").textContent = T().retry;
+          renderTabs();
+          var ok = !!document.querySelector("#snap header");
+          if (ok) document.querySelector("#snap header").style.top = document.getElementById("offline-bar").offsetHeight + "px";
+          window.scrollTo(0, 0);
+          return true;
+        });
+      }
+
+      function renderTabs() {
+        var tabs = document.getElementById("tabs");
+        tabs.innerHTML = "";
+        Object.keys(T().tabs).forEach(function (base) {
+          var target = state.index.filter(function (p) { return p === base || p.indexOf(base + "?") === 0; }).pop();
+          if (!target) return;
+          var b = document.createElement("button");
+          b.type = "button"; b.textContent = T().tabs[base];
+          if (state.current.split("?")[0] === base) b.setAttribute("aria-current", "true");
+          b.onclick = function () { show(target); };
+          tabs.appendChild(b);
+        });
+      }
+
+      function resolve(href) {
+        try {
+          var u = new URL(href, "http://x");
+          if (u.origin !== "http://x" && (!state.server || u.origin !== state.server)) return null;
+          return u.pathname + u.search;
+        } catch (e) { return null; }
+      }
+
+      document.addEventListener("click", function (ev) {
+        var a = ev.target.closest && ev.target.closest("a[href]");
+        if (!a) return;
+        ev.preventDefault();
+        var path = resolve(a.getAttribute("href"));
+        if (path && state.index.indexOf(path) >= 0) show(path);
+        else toast(T().unsaved);
+      });
+      document.addEventListener("submit", function (ev) { ev.preventDefault(); toast(T().unsaved); }, true);
+
+      function tryServer() {
+        if (!state.server) return Promise.resolve();
+        var ctl = new AbortController();
+        var timer = setTimeout(function () { ctl.abort(); }, 4000);
+        // no-cors: the response is opaque, but the promise only resolves when the server was reached.
+        return fetch(state.server + "/api/health", { mode: "no-cors", cache: "no-store", signal: ctl.signal })
+          .then(function () { clearTimeout(timer); location.replace(state.server + (state.current || "/")); })
+          .catch(function () { clearTimeout(timer); });
+      }
+
+      document.getElementById("retry").onclick = function () {
+        var b = this; b.textContent = T().checking;
+        tryServer().then(function () { b.textContent = T().retry; });
+      };
+
+      function init() {
+        if (!P) { showNone(); return; }
+        Promise.all([get("snap:idx"), get("snap:last"), get("snap:server"), get("snap:css")]).then(function (v) {
+          state.index = v[0] ? JSON.parse(v[0]) : [];
+          state.server = v[2] || "";
+          document.getElementById("app-css").textContent = v[3] || "";
+          var lang = (navigator.language || "en").slice(0, 2);
+          state.lang = lang === "de" ? "de" : "en";
+          var last = v[1] && state.index.indexOf(v[1]) >= 0 ? v[1] : state.index[state.index.length - 1];
+          return last ? show(last) : false;
+        }).then(function (ok) {
+          if (!ok) showNone();
+          setInterval(tryServer, 8000);
+        }).catch(showNone);
+      }
+
+      function showNone() {
+        document.getElementById("offline-bar").hidden = true;
+        var el = document.getElementById("empty");
+        el.hidden = false; el.textContent = T().none;
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

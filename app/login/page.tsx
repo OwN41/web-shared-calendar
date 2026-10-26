@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { ApkDownload } from "@/components/ApkDownload";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { NativeSnapshot } from "@/components/NativeSnapshot";
 import { OfflineSupport } from "@/components/OfflineSupport";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { login } from "@/lib/actions";
@@ -16,6 +17,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
       <OfflineSupport userId={null} banner={false} />
+      <NativeSnapshot userId={null} />
       <form action={login} className={`${cardCls} w-full max-w-sm space-y-4`}>
         <h1 className="text-xl font-semibold">{t("login")}</h1>
         <ErrorBanner message={typeof error === "string" ? error : undefined} />

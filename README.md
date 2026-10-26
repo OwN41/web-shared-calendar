@@ -233,6 +233,19 @@ prisma/
   reach the phone the next time the app is opened. No Firebase, push service
   or extra server component is needed. On Android 12+ allow "Alarms &
   reminders" for the app for exact timing.
+- **Offline mode in the Android app:** the service worker can't run there (the
+  app loads the site over plain `http` on a LAN address, which is not a secure
+  context), so the app keeps its own copy. While you are online,
+  `components/NativeSnapshot.tsx` saves a static copy (HTML plus the page's CSS)
+  of up to 25 visited pages with `@capacitor/preferences`. When the server
+  can't be reached, Capacitor shows `capacitor-www/offline.html`
+  (`server.errorPath`), which renders the last saved page read-only with an
+  "Offline, saved data from ..." bar, links between saved pages, and a Retry
+  button. It checks the server every 8 seconds and reloads the live site as soon
+  as it answers. If the connection drops while a page is open, the normal
+  offline banner appears. Copies are cleared when the signed-in user changes or
+  you log out. Saved pages are static: forms, menus and unsaved pages don't
+  work offline. After changing this, run `npm run cap:sync` and rebuild the APK.
 - **Offline mode:** `public/sw.js` is registered in production builds only.
   Pages are fetched from the network first and fall back to the saved copy
   when the server is unreachable, slow, or answers with a 5xx error. A banner

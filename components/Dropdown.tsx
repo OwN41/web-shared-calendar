@@ -57,6 +57,7 @@ export function Dropdown({
       </button>
       {open && (
         <div
+          data-snapshot-skip
           className={`${panelClassName} ${closing ? "popup-leave" : "popup-enter"}`}
           onClick={(e) => closeOnSelect && e.target instanceof Element && e.target.closest("button") && close()}
           onAnimationEnd={() => {

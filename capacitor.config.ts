@@ -22,7 +22,14 @@ const config: CapacitorConfig = {
   appName: 'Family Calendar',
   webDir: 'capacitor-www',
   server: serverUrl
-    ? { url: serverUrl, cleartext: serverUrl.startsWith('http://') }
+    ? {
+        url: serverUrl,
+        cleartext: serverUrl.startsWith('http://'),
+        // Shown from the app's own files when the server can't be reached (see capacitor-www/offline.html).
+        errorPath: 'offline.html',
+        // The offline page is served from http://localhost so it may call the http:// server without mixed-content blocking.
+        androidScheme: 'http',
+      }
     : undefined,
 };
 

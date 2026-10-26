@@ -57,7 +57,7 @@ export function MobileNav({
       </button>
       {open &&
         createPortal(
-          <div className="fixed inset-x-0 top-0 z-20 h-dvh" style={{ top, height: `calc(100dvh - ${top}px)` }}>
+          <div data-snapshot-skip className="fixed inset-x-0 top-0 z-20 h-dvh" style={{ top, height: `calc(100dvh - ${top}px)` }}>
             <div className={`absolute inset-0 bg-black/40 ${closing ? "drawer-fade-out" : "drawer-fade-in"}`} onClick={close} />
             <aside
               role="dialog"
