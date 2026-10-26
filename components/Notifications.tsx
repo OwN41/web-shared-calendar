@@ -1,22 +1,61 @@
 import { getLocale, getTranslations } from "next-intl/server";
-import { dismissResponses, respondInvite } from "@/lib/actions";
+import { dismissReminders, dismissResponses, respondInvite } from "@/lib/actions";
+import { floatingNow, tzOffset } from "@/lib/clock";
 import { formatDay, formatTime } from "@/lib/dates";
-import { inviteResponses, pendingInvites } from "@/lib/queries";
+import { dueReminders, inviteResponses, pendingInvites } from "@/lib/queries";
 import { NotificationBell } from "./NotificationBell";
 import { btnCls, btnGhostCls } from "./ui";
 
 export async function Notifications({ userId }: { userId: string }) {
-  const [t, locale, invites, responses] = await Promise.all([
+  const now = await floatingNow();
+  const [t, locale, invites, responses, reminders] = await Promise.all([
     getTranslations("notifications"),
     getLocale(),
     pendingInvites(userId),
     inviteResponses(userId),
+    dueReminders(userId, now),
   ]);
-  const count = invites.length + responses.length;
+  const count = invites.length + responses.length + reminders.length;
+
+  const when = (start: Date) => {
+    const mins = Math.round((start.getTime() - now.getTime()) / 60000);
+    if (mins <= 0) return t("started");
+    if (mins < 60) return t("inMinutes", { n: mins });
+    if (mins < 1440) return t("inHours", { n: Math.round(mins / 60) });
+    return t("inDays", { n: Math.round(mins / 1440) });
+  };
+  const alerts = reminders.map((r) => ({ key: r.key, title: r.title, body: when(r.occ_start) }));
 
   return (
-    <NotificationBell count={count} label={t("title")}>
+    <NotificationBell count={count} label={t("title")} alerts={alerts} tz={await tzOffset()}>
       {count === 0 && <p className="text-zinc-500">{t("empty")}</p>}
+      {reminders.length > 0 && (
+        <section className="mb-4 space-y-3 border-b border-zinc-200 pb-3 dark:border-zinc-700">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-medium">{t("reminders")}</h2>
+            <form action={dismissReminders}>
+              <input type="hidden" name="key" value="" />
+              <button className="text-xs text-blue-600 hover:underline">{t("clearAll")}</button>
+            </form>
+          </div>
+          <ul className="space-y-2">
+            {reminders.map((r, i) => (
+              <li key={r.key} className="flex items-start justify-between gap-2">
+                <div>
+                  <span aria-hidden>⏰</span> <span className="font-medium">{r.title}</span>
+                  <div className="text-xs text-zinc-500">
+                    {formatDay(r.occ_start, locale)} · {formatTime(r.occ_start)} · {alerts[i].body}
+                  </div>
+                </div>
+                <form action={dismissReminders}>
+                  <input type="hidden" name="key" value={r.key} />
+                  <button aria-label={t("dismiss")} title={t("dismiss")} className="rounded px-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">×</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {invites.length > 0 && (
         <section className="space-y-3">
           <h2 className="font-medium">{t("invitations")}</h2>

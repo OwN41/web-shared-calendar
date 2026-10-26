@@ -50,6 +50,7 @@ export function parseIcs(text: string, ownerName: string): CalEvent[] {
           series_start: day,
           series_end: day,
           invitees: [],
+          reminders: [],
           group_ids: [],
         });
       }

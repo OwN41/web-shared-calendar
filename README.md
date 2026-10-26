@@ -13,6 +13,8 @@ appointments with groups, and sees a combined view of what others shared.
 - Invitations: invite people you share a group with; they accept or decline,
   and accepted appointments appear in their calendar. Invitees and their
   answers are listed on the appointment
+- Reminders: several per appointment (5 min to 1 week presets or custom),
+  shown in the bell and optionally as device alerts
 - Notification bell with a live badge for new invitations and answers
 - Groups: share appointments with one or more groups (invite codes can be
   copied); "Shared" page shows what is shared with you
@@ -157,6 +159,15 @@ prisma/
   when the tab regains focus.
 - **Editing:** editing a repeating appointment changes the whole series.
   Existing invitees keep their answer; removed invitees are deleted.
+- **Reminders:** an appointment can have several reminders (presets from 5
+  minutes to 1 week, or a custom value) stored in `EventReminder`. They apply
+  to the owner and to invitees who accepted, and fire for every occurrence of
+  a repeating appointment. A due reminder appears in the bell (dismissals are
+  stored in `ReminderSeen`). Because times are floating, "now" is computed
+  from the browser's time zone offset, which is saved in a `tz` cookie. Optional
+  device alerts use the browser Notification API once permission is granted.
+  Reminders are only detected while the app is open in a tab (polled every 10
+  seconds); there is no background push.
 - **Offline mode:** `public/sw.js` is registered in production builds only.
   Pages are fetched from the network first and fall back to the saved copy
   when the server is unreachable, slow, or answers with a 5xx error. A banner

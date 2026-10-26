@@ -19,6 +19,7 @@ export type CalEvent = {
   series_start: Date;
   series_end: Date;
   invitees: Invitee[];
+  reminders: number[];
   group_ids: string[];
 };
 
@@ -47,6 +48,7 @@ function eventResult(
     owner: { name: string; color: string };
     shares: { groupId: string }[];
     invites: { userId: string; status: string; user: { name: string } }[];
+    reminders: { minutes: number }[];
   },
   from: Date,
   to: Date,
@@ -71,6 +73,7 @@ function eventResult(
     invitees: event.invites
       .map((i) => ({ user_id: i.userId, name: i.user.name, status: i.status as Invitee["status"] }))
       .sort((a, b) => a.name.localeCompare(b.name)),
+    reminders: event.reminders.map((r) => r.minutes).sort((a, b) => a - b),
     group_ids: event.shares.map(({ groupId }) => groupId),
   }));
 }
@@ -85,7 +88,8 @@ const eventInclude = {
   owner: { select: { name: true, color: true } },
   shares: { select: { groupId: true } },
   invites: { select: { userId: true, status: true, user: { select: { name: true } } } },
-} as const;
+    reminders: { select: { minutes: true } },
+  } as const;
 
 // Repeating events can start long before the range, so only the start bound applies to them.
 const inRange = (from: Date, to: Date) => ({
@@ -130,14 +134,61 @@ export async function pendingInvites(userId: string) {
 
 export type Contact = { id: string; name: string; color: string };
 
-export async function notificationCount(userId: string) {
-  const [pending, responses] = await Promise.all([
+export type DueReminder = {
+  key: string;
+  event_id: string;
+  minutes: number;
+  occ_start: Date;
+  title: string;
+};
+
+/** Reminders whose time has come for events that haven't ended yet. `floatingNow` is the user's wall-clock time as UTC. */
+export async function dueReminders(userId: string, floatingNow: Date): Promise<DueReminder[]> {
+  const events = await prisma.event.findMany({
+    where: {
+      reminders: { some: {} },
+      OR: [{ ownerId: userId }, { invites: { some: { userId, status: "accepted" } } }],
+    },
+    select: {
+      id: true,
+      title: true,
+      startsAt: true,
+      endsAt: true,
+      repeat: true,
+      reminders: { select: { minutes: true } },
+    },
+  });
+  const seen = await prisma.reminderSeen.findMany({
+    where: { userId },
+    select: { eventId: true, minutes: true, occStart: true },
+  });
+  const seenKeys = new Set(seen.map((s) => `${s.eventId}:${s.minutes}:${s.occStart.getTime()}`));
+  const due: DueReminder[] = [];
+  for (const event of events) {
+    const repeat = isRepeat(event.repeat) ? event.repeat : "none";
+    const max = Math.max(...event.reminders.map((r) => r.minutes));
+    const to = new Date(floatingNow.getTime() + max * 60000 + 1);
+    for (const occ of occurrences(event.startsAt, event.endsAt, repeat, floatingNow, to)) {
+      for (const { minutes } of event.reminders) {
+        if (floatingNow.getTime() < occ.start.getTime() - minutes * 60000) continue;
+        const key = `${event.id}:${minutes}:${occ.start.getTime()}`;
+        if (seenKeys.has(key)) continue;
+        due.push({ key, event_id: event.id, minutes, occ_start: occ.start, title: event.title });
+      }
+    }
+  }
+  return due.sort((a, b) => a.occ_start.getTime() - b.occ_start.getTime() || a.minutes - b.minutes);
+}
+
+export async function notificationCount(userId: string, floatingNow: Date) {
+  const [pending, responses, reminders] = await Promise.all([
     prisma.eventInvite.count({ where: { userId, status: "pending" } }),
     prisma.eventInvite.count({
       where: { ownerSeen: false, status: { not: "pending" }, event: { ownerId: userId } },
     }),
+    dueReminders(userId, floatingNow),
   ]);
-  return pending + responses;
+  return pending + responses + reminders.length;
 }
 
 export async function inviteResponses(userId: string) {

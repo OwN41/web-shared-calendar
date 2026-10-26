@@ -21,6 +21,8 @@ import {
   verifyPassword,
 } from "./auth";
 import { parseLocalInput } from "./dates";
+import { TZ_COOKIE, floatingNow } from "./clock";
+import { dueReminders } from "./queries";
 import { isRepeat } from "./recurrence";
 
 const str = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
@@ -214,6 +216,17 @@ async function allowedInvitees(userId: string, wanted: string[]): Promise<string
   return rows.map(({ id }) => id);
 }
 
+const MAX_REMINDER_MINUTES = 525_600;
+
+function readReminders(fd: FormData): number[] {
+  const set = new Set<number>();
+  for (const v of fd.getAll("reminders")) {
+    const n = Number(v);
+    if (Number.isInteger(n) && n >= 0 && n <= MAX_REMINDER_MINUTES) set.add(n);
+  }
+  return [...set].slice(0, 20);
+}
+
 function readEvent(fd: FormData, back: string, t: Awaited<ReturnType<typeof getTranslations>>) {
   const title = str(fd, "title");
   const allDay = fd.get("all_day") === "on";
@@ -248,6 +261,7 @@ export async function createEvent(fd: FormData) {
 
   const groups = await myGroupIds(user.id, uuids(fd, "groups"));
   const invitees = await allowedInvitees(user.id, uuids(fd, "invitees"));
+  const reminders = readReminders(fd);
   await prisma.$transaction(async (tx) => {
     const event = await tx.event.create({
       data: { ownerId: user.id, ...data },
@@ -261,6 +275,11 @@ export async function createEvent(fd: FormData) {
     if (invitees.length) {
       await tx.eventInvite.createMany({
         data: invitees.map((userId) => ({ eventId: event.id, userId })),
+      });
+    }
+    if (reminders.length) {
+      await tx.eventReminder.createMany({
+        data: reminders.map((minutes) => ({ eventId: event.id, minutes })),
       });
     }
   });
@@ -280,6 +299,7 @@ export async function updateEvent(fd: FormData) {
 
   const groups = await myGroupIds(user.id, uuids(fd, "groups"));
   const invitees = await allowedInvitees(user.id, uuids(fd, "invitees"));
+  const reminders = readReminders(fd);
   await prisma.$transaction(async (tx) => {
     await tx.event.update({ where: { id }, data });
     await tx.eventShare.deleteMany({ where: { eventId: id } });
@@ -296,6 +316,12 @@ export async function updateEvent(fd: FormData) {
         skipDuplicates: true,
       });
     }
+    await tx.eventReminder.deleteMany({ where: { eventId: id } });
+    if (reminders.length) {
+      await tx.eventReminder.createMany({
+        data: reminders.map((minutes) => ({ eventId: id, minutes })),
+      });
+    }
   });
   revalidatePath("/", "layout");
   redirect(`${back}?month=${starts.toISOString().slice(0, 7)}`);
@@ -308,6 +334,32 @@ export async function respondInvite(fd: FormData) {
     where: { eventId: str(fd, "id"), userId: user.id },
     data: { status, ownerSeen: false },
   });
+  revalidatePath("/", "layout");
+}
+
+export async function setTimezone(offset: number) {
+  if (!Number.isInteger(offset) || Math.abs(offset) > 14 * 60) return;
+  (await cookies()).set(TZ_COOKIE, String(offset), { path: "/", maxAge: 365 * 86_400, sameSite: "lax" });
+  revalidatePath("/", "layout");
+}
+
+/** Dismiss one due reminder by key, or all currently due reminders when no key is given. */
+export async function dismissReminders(fd: FormData) {
+  const user = await requireUser();
+  const key = str(fd, "key");
+  const due = await dueReminders(user.id, await floatingNow());
+  const rows = due.filter((d) => !key || d.key === key);
+  if (rows.length) {
+    await prisma.reminderSeen.createMany({
+      data: rows.map((d) => ({
+        userId: user.id,
+        eventId: d.event_id,
+        minutes: d.minutes,
+        occStart: d.occ_start,
+      })),
+      skipDuplicates: true,
+    });
+  }
   revalidatePath("/", "layout");
 }
 

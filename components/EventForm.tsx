@@ -8,6 +8,7 @@ import type { CalEvent, Contact, Group } from "@/lib/queries";
 import { createEvent, updateEvent } from "@/lib/actions";
 import { DateTimeInput } from "./DateTimeInput";
 import { LocationInput } from "./LocationInput";
+import { ReminderPicker } from "./ReminderPicker";
 import { btnCls, btnGhostCls, inputCls } from "./ui";
 
 const COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899"];
@@ -144,6 +145,7 @@ export function EventForm({
             <p className="w-full text-xs text-zinc-500">{t("inviteHint")}</p>
           </fieldset>
         )}
+        <ReminderPicker defaultValue={event?.reminders} />
         <div className="flex gap-2 sm:col-span-2">
           <button className={btnCls}>{t("save")}</button>
           <button type="button" onClick={onClose} className={btnGhostCls}>{t("cancel")}</button>
