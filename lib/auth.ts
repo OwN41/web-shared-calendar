@@ -63,6 +63,13 @@ export async function destroySession() {
   jar.delete(COOKIE);
 }
 
+export async function destroyOtherSessions(userId: string) {
+  const token = (await cookies()).get(COOKIE)?.value;
+  await prisma.session.deleteMany({
+    where: { userId, ...(token ? { tokenHash: { not: sha256(token) } } : {}) },
+  });
+}
+
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;

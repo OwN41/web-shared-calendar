@@ -10,7 +10,9 @@
     "groups": "Gruppen",
     "admin": "Admin",
     "settings": "Einstellungen",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "menu": "Menü öffnen",
+    "close": "Menü schließen"
   },
   "language": {
     "label": "Sprache",
@@ -106,6 +108,18 @@
   "settings": {
     "title": "Einstellungen",
     "saved": "Farbe gespeichert.",
+    "savedProfile": "Profil gespeichert.",
+    "savedPassword": "Passwort geändert. Andere Geräte wurden abgemeldet.",
+    "colorTitle": "Kalenderfarbe",
+    "profileTitle": "Profil",
+    "name": "Name",
+    "username": "Benutzername",
+    "email": "E-Mail",
+    "currentPassword": "Aktuelles Passwort",
+    "currentPasswordHint": "Zum Ändern der E-Mail erforderlich.",
+    "passwordTitle": "Passwort ändern",
+    "newPassword": "Neues Passwort (mind. 8 Zeichen)",
+    "confirmPassword": "Neues Passwort wiederholen",
     "signedInAs": "Angemeldet als",
     "save": "Speichern"
   },
@@ -169,6 +183,7 @@
     "emailTaken": "Ein Konto mit dieser E-Mail-Adresse existiert bereits.",
     "tooManyAttempts": "Zu viele Versuche. Bitte versuche es später erneut.",
     "invalidLogin": "Ungültiger Benutzername/E-Mail oder ungültiges Passwort.",
+    "currentPassword": "Das aktuelle Passwort ist falsch.",
     "disabled": "Dieses Konto wurde deaktiviert.",
     "eventTitle": "Bitte gib einen Titel ein.",
     "eventDates": "Bitte gib gültige Daten ein.",

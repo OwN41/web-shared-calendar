@@ -10,7 +10,9 @@
     "groups": "Groups",
     "admin": "Admin",
     "settings": "Settings",
-    "logout": "Log out"
+    "logout": "Log out",
+    "menu": "Open menu",
+    "close": "Close menu"
   },
   "language": {
     "label": "Language",
@@ -106,6 +108,18 @@
   "settings": {
     "title": "Settings",
     "saved": "Colour saved.",
+    "savedProfile": "Profile saved.",
+    "savedPassword": "Password changed. Other devices were signed out.",
+    "colorTitle": "Calendar colour",
+    "profileTitle": "Profile",
+    "name": "Name",
+    "username": "Username",
+    "email": "Email",
+    "currentPassword": "Current password",
+    "currentPasswordHint": "Required to change your email.",
+    "passwordTitle": "Change password",
+    "newPassword": "New password (min. 8 characters)",
+    "confirmPassword": "Repeat new password",
     "signedInAs": "Signed in as",
     "save": "Save"
   },
@@ -169,6 +183,7 @@
     "emailTaken": "An account with this email already exists.",
     "tooManyAttempts": "Too many attempts. Try again later.",
     "invalidLogin": "Invalid username/email or password.",
+    "currentPassword": "The current password is incorrect.",
     "disabled": "This account has been disabled.",
     "eventTitle": "Please enter a title.",
     "eventDates": "Please enter valid dates.",

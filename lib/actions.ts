@@ -11,6 +11,7 @@ import { prisma } from "./db";
 import {
   clearLoginFailures,
   createSession,
+  destroyOtherSessions,
   destroySession,
   hashPassword,
   loginThrottled,
@@ -127,7 +128,64 @@ export async function updateColor(fd: FormData) {
   if (!COLOR.test(color)) fail("/settings", t("color"));
   await prisma.user.update({ where: { id: user.id }, data: { color } });
   revalidatePath("/", "layout");
-  redirect("/settings?saved=1");
+  redirect("/settings?saved=color");
+}
+
+export async function updateProfile(fd: FormData) {
+  const user = await requireUser();
+  const t = await getTranslations("errors");
+  const name = str(fd, "name");
+  const email = str(fd, "email").toLowerCase();
+
+  if (!name || name.length > 80) fail("/settings", t("name"));
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) fail("/settings", t("email"));
+
+  const current = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { email: true, passwordHash: true },
+  });
+  if (email !== current.email) {
+    if (loginThrottled(`pw:${user.id}`)) fail("/settings", t("tooManyAttempts"));
+    if (!(await verifyPassword(String(fd.get("current_password") ?? ""), current.passwordHash))) {
+      recordLoginFailure(`pw:${user.id}`);
+      fail("/settings", t("currentPassword"));
+    }
+    clearLoginFailures(`pw:${user.id}`);
+  }
+
+  try {
+    await prisma.user.update({ where: { id: user.id },     data: { name, email } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          fail("/settings", t("emailTaken"));
+    }
+    throw error;
+  }
+  revalidatePath("/", "layout");
+  redirect("/settings?saved=profile");
+}
+
+export async function changePassword(fd: FormData) {
+  const user = await requireUser();
+  const t = await getTranslations("errors");
+  const next = String(fd.get("new_password") ?? "");
+  if (next.length < 8 || next.length > 200) fail("/settings", t("passwordShort"));
+  if (next !== String(fd.get("confirm") ?? "")) fail("/settings", t("passwordMismatch"));
+
+  if (loginThrottled(`pw:${user.id}`)) fail("/settings", t("tooManyAttempts"));
+  const { passwordHash } = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { passwordHash: true },
+  });
+  if (!(await verifyPassword(String(fd.get("current_password") ?? ""), passwordHash))) {
+    recordLoginFailure(`pw:${user.id}`);
+    fail("/settings", t("currentPassword"));
+  }
+  clearLoginFailures(`pw:${user.id}`);
+
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(next) } });
+  await destroyOtherSessions(user.id);
+  redirect("/settings?saved=password");
 }
 
 export async function logout() {
