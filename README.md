@@ -1,4 +1,4 @@
-# web-shared-calendar
+# 📅 web-shared-calendar
 
 A shared family calendar. Everyone keeps a personal calendar, can share
 appointments with groups, and sees a combined view of what others shared.
@@ -90,10 +90,10 @@ otherwise the Prisma engine file may be locked.
 
 ## Environment variables
 
-| Variable               | Required | Description                                                                                                                                    |
-| ---------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`         | yes      | PostgreSQL connection string, e.g. `postgresql://user:password@localhost:5432/shared_calendar`. URL-encode special characters in the password. |
-| `COLLECTION_DATES_URL` | no       | URL of an ICS feed with waste collection dates. Shown in "My calendar" only. Without it, no waste chips are shown.                             |
+| Variable               | Required | Description                                                                                                                                                                             |
+| ---------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`         | yes      | PostgreSQL connection string, e.g. `postgresql://user:password@localhost:5432/shared_calendar`. URL-encode special characters in the password.                                          |
+| `COLLECTION_DATES_URL` | no       | URL of an ICS feed with waste collection dates. Shown in "My calendar" only. Without it, no waste chips are shown.                                                                      |
 | `CAP_SERVER_URL`       | mobile   | Address of this server for the Capacitor app, e.g. `http://192.168.178.34:3000` (LAN IP or hostname, not `localhost`). Read by `npm run cap:sync` and the dev server's allowed origins. |
 
 Never commit `.env.local`.
