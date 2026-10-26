@@ -46,6 +46,10 @@ export function parseIcs(text: string, ownerName: string): CalEvent[] {
           ends_at: day,
           all_day: true,
           repeat: "none",
+          color: null,
+          series_start: day,
+          series_end: day,
+          invitees: [],
           group_ids: [],
         });
       }

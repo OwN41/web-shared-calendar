@@ -3,8 +3,8 @@
 import { useRef, useState } from "react";
 import { inputCls } from "./ui";
 
-export function LocationInput({ name, placeholder }: { name: string; placeholder: string }) {
-  const [value, setValue] = useState("");
+export function LocationInput({ name, placeholder, defaultValue = "" }: { name: string; placeholder: string; defaultValue?: string }) {
+  const [value, setValue] = useState(defaultValue);
   const [options, setOptions] = useState<string[]>([]);
   const [active, setActive] = useState(-1);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);

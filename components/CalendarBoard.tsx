@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import type { CalEvent, Group } from "@/lib/queries";
+import type { CalEvent, Contact, Group } from "@/lib/queries";
 import { setHiddenWaste as saveHiddenWaste } from "@/lib/actions";
 import { formatLongDay, monthKey, ymd } from "@/lib/dates";
 import { EventForm } from "./EventForm";
@@ -15,6 +15,7 @@ export function CalendarBoard({
   month,
   events,
   groups,
+  contacts,
   userId,
   userColor,
   extraParams,
@@ -27,6 +28,7 @@ export function CalendarBoard({
   month: Date;
   events: CalEvent[];
   groups: Group[];
+  contacts: Contact[];
   userId: string;
   userColor: string;
   extraParams?: string;
@@ -54,12 +56,14 @@ export function CalendarBoard({
     return today.startsWith(monthKey(month)) ? today : `${monthKey(month)}-01`;
   });
   const [creating, setCreating] = useState<string | null>(null);
+  const [editing, setEditing] = useState<CalEvent | null>(null);
 
   // Fresh data after a save (or a failed save) closes the form.
   const [seenEvents, setSeenEvents] = useState(events);
   if (seenEvents !== events) {
     setSeenEvents(events);
     setCreating(null);
+    setEditing(null);
   }
 
   const byDay = useMemo(() => {
@@ -123,17 +127,29 @@ export function CalendarBoard({
             {t("newEvent")}
           </button>
         )}
-        <EventList events={dayEvents} groups={groups} userId={userId} heading={heading} />
+        <EventList events={dayEvents} groups={groups} userId={userId} heading={heading} onEdit={setEditing} />
         <p className="mt-3 hidden text-xs text-zinc-500 [@media(pointer:fine)]:block">{t("doubleClickHint")}</p>
       </aside>
       {creating && (
         <EventForm
           groups={groups}
+          contacts={contacts}
           back={basePath}
           day={creating}
           defaultGroupIds={defaultGroupIds}
           userColor={userColor}
           onClose={() => setCreating(null)}
+        />
+      )}
+      {editing && (
+        <EventForm
+          key={editing.occ}
+          groups={groups}
+          contacts={contacts}
+          back={basePath}
+          event={editing}
+          userColor={userColor}
+          onClose={() => setEditing(null)}
         />
       )}
     </div>

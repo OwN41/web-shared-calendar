@@ -1,6 +1,6 @@
 import { useLocale, useTranslations } from "next-intl";
 import type { CalEvent, Group } from "@/lib/queries";
-import { deleteEvent, setEventShares } from "@/lib/actions";
+import { deleteEvent, respondInvite, setEventShares } from "@/lib/actions";
 import { formatDay, formatTime } from "@/lib/dates";
 import { btnDangerCls, btnGhostCls, cardCls } from "./ui";
 
@@ -9,11 +9,13 @@ export function EventList({
   groups,
   userId,
   heading,
+  onEdit,
 }: {
   events: CalEvent[];
   groups: Group[];
   userId: string;
   heading: string;
+  onEdit: (event: CalEvent) => void;
 }) {
   const t = useTranslations("events");
   const locale = useLocale();
@@ -49,6 +51,21 @@ export function EventList({
                       </div>
                     )}
                     {e.description && <div className="text-zinc-900 dark:text-zinc-100">{e.description}</div>}
+                    {e.invitees.length > 0 && (
+                      <details className="group">
+                        <summary className="cursor-pointer select-none">
+                          {t("invited")} · {t("acceptedCount", { accepted: e.invitees.filter((i) => i.status === "accepted").length, total: e.invitees.length })}
+                        </summary>
+                        <ul className="mt-1 space-y-0.5 pl-4">
+                          {e.invitees.map((i) => (
+                            <li key={i.user_id}>
+                              {i.status === "accepted" ? "✓" : i.status === "declined" ? "✗" : "⏳"} {i.name}
+                              <span className="text-xs text-zinc-500"> ({t(`status_${i.status}`)})</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
                   </div>
                   <div className="mt-1 text-xs text-zinc-500">
                     {mine ? t("you") : e.owner_name}
@@ -57,9 +74,18 @@ export function EventList({
                   </div>
                 </div>
                 {mine && (
-                  <form action={deleteEvent}>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => onEdit(e)} className={btnGhostCls}>{t("edit")}</button>
+                    <form action={deleteEvent}>
+                      <input type="hidden" name="id" value={e.id} />
+                      <button className={btnDangerCls}>{t("delete")}</button>
+                    </form>
+                  </div>
+                )}
+                {!mine && e.invitees.some((i) => i.user_id === userId && i.status === "accepted") && (
+                  <form action={respondInvite}>
                     <input type="hidden" name="id" value={e.id} />
-                    <button className={btnDangerCls}>{t("delete")}</button>
+                    <button name="answer" value="decline" className={btnDangerCls}>{t("leaveEvent")}</button>
                   </form>
                 )}
               </div>

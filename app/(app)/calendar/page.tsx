@@ -4,7 +4,7 @@ import { CalendarBoard } from "@/components/CalendarBoard";
 import { ErrorBanner } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { monthGrid, monthKey, parseMonth } from "@/lib/dates";
-import { myEvents, myGroups } from "@/lib/queries";
+import { contacts, myEvents, myGroups } from "@/lib/queries";
 import { collectionDates } from "@/lib/waste";
 
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
@@ -14,10 +14,11 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const month = parseMonth(typeof sp.month === "string" ? sp.month : undefined);
   const grid = monthGrid(month);
   const gridEnd = new Date(grid[grid.length - 1].getTime() + 86_400_000);
-  const [events, groups, waste] = await Promise.all([
+  const [events, groups, waste, contactList] = await Promise.all([
     myEvents(user.id, grid[0], gridEnd),
     myGroups(user.id),
     collectionDates(grid[0], gridEnd, t("waste")),
+    contacts(user.id),
   ]);
   let hiddenWaste: string[] = [];
   try {
@@ -35,6 +36,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         month={month}
         events={events}
         groups={groups}
+        contacts={contactList}
         userId={user.id}
         userColor={user.color}
         waste={waste}

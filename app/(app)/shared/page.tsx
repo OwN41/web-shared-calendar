@@ -4,7 +4,7 @@ import { CalendarBoard } from "@/components/CalendarBoard";
 import { ErrorBanner } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { monthGrid, monthKey, parseMonth } from "@/lib/dates";
-import { groupMembers, myGroups, sharedEvents } from "@/lib/queries";
+import { contacts, groupMembers, myGroups, sharedEvents } from "@/lib/queries";
 
 export default async function SharedPage({ searchParams }: PageProps<"/shared">) {
   const user = await requireUser();
@@ -15,9 +15,10 @@ export default async function SharedPage({ searchParams }: PageProps<"/shared">)
   const selected = groups.find((g) => g.id === sp.group);
   const grid = monthGrid(month);
   const gridEnd = new Date(grid[grid.length - 1].getTime() + 86_400_000);
-  const [events, members] = await Promise.all([
+  const [events, members, contactList] = await Promise.all([
     sharedEvents(user.id, grid[0], gridEnd, selected?.id),
     groupMembers((selected ? [selected] : groups).map((g) => g.id)),
+    contacts(user.id),
   ]);
   const people = [...new Map(members.map((m) => [m.name + m.color, m])).values()];
   const tab = (active: boolean) =>
@@ -54,6 +55,7 @@ export default async function SharedPage({ searchParams }: PageProps<"/shared">)
             month={month}
             events={events}
             groups={groups}
+            contacts={contactList}
             userId={user.id}
             userColor={user.color}
             showOwner

@@ -4,6 +4,7 @@ import { logout } from "@/lib/actions";
 import type { User } from "@/lib/auth";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { MobileNav } from "./MobileNav";
+import { Notifications } from "./Notifications";
 import { ThemeToggle } from "./ThemeToggle";
 
 export async function Nav({ user }: { user: User }) {
@@ -30,6 +31,7 @@ export async function Nav({ user }: { user: User }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1 md:ml-0">
+          <Notifications userId={user.id} />
           <LanguageSwitcher />
           <ThemeToggle />
         </div>

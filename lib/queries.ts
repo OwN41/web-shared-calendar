@@ -15,8 +15,14 @@ export type CalEvent = {
   ends_at: Date;
   all_day: boolean;
   repeat: Repeat;
+  color: string | null;
+  series_start: Date;
+  series_end: Date;
+  invitees: Invitee[];
   group_ids: string[];
 };
+
+export type Invitee = { user_id: string; name: string; status: "pending" | "accepted" | "declined" };
 
 export type Group = {
   id: string;
@@ -40,6 +46,7 @@ function eventResult(
     repeat: string;
     owner: { name: string; color: string };
     shares: { groupId: string }[];
+    invites: { userId: string; status: string; user: { name: string } }[];
   },
   from: Date,
   to: Date,
@@ -58,6 +65,12 @@ function eventResult(
     ends_at: end,
     all_day: event.allDay,
     repeat,
+    color: event.color,
+    series_start: event.startsAt,
+    series_end: event.endsAt,
+    invitees: event.invites
+      .map((i) => ({ user_id: i.userId, name: i.user.name, status: i.status as Invitee["status"] }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
     group_ids: event.shares.map(({ groupId }) => groupId),
   }));
 }
@@ -71,6 +84,7 @@ function expand(events: Parameters<typeof eventResult>[0][], from: Date, to: Dat
 const eventInclude = {
   owner: { select: { name: true, color: true } },
   shares: { select: { groupId: true } },
+  invites: { select: { userId: true, status: true, user: { select: { name: true } } } },
 } as const;
 
 // Repeating events can start long before the range, so only the start bound applies to them.
@@ -81,10 +95,85 @@ const inRange = (from: Date, to: Date) => ({
 
 export async function myEvents(userId: string, from: Date, to: Date) {
   const events = await prisma.event.findMany({
-    where: { ownerId: userId, ...inRange(from, to) },
+    where: {
+      AND: [
+        inRange(from, to),
+        { OR: [{ ownerId: userId }, { invites: { some: { userId, status: "accepted" } } }] },
+      ],
+    },
     include: eventInclude,
   });
   return expand(events, from, to);
+}
+
+export async function pendingInvites(userId: string) {
+  const rows = await prisma.eventInvite.findMany({
+    where: { userId, status: "pending" },
+    select: {
+      eventId: true,
+      event: {
+        select: { title: true, startsAt: true, endsAt: true, allDay: true, repeat: true, owner: { select: { name: true } } },
+      },
+    },
+    orderBy: { event: { startsAt: "asc" } },
+  });
+  return rows.map(({ eventId, event }) => ({
+    id: eventId,
+    title: event.title,
+    starts_at: event.startsAt,
+    ends_at: event.endsAt,
+    all_day: event.allDay,
+    repeat: event.repeat,
+    owner_name: event.owner.name,
+  }));
+}
+
+export type Contact = { id: string; name: string; color: string };
+
+export async function notificationCount(userId: string) {
+  const [pending, responses] = await Promise.all([
+    prisma.eventInvite.count({ where: { userId, status: "pending" } }),
+    prisma.eventInvite.count({
+      where: { ownerSeen: false, status: { not: "pending" }, event: { ownerId: userId } },
+    }),
+  ]);
+  return pending + responses;
+}
+
+export async function inviteResponses(userId: string) {
+  const rows = await prisma.eventInvite.findMany({
+    where: { ownerSeen: false, status: { not: "pending" }, event: { ownerId: userId } },
+    select: {
+      eventId: true,
+      userId: true,
+      status: true,
+      user: { select: { name: true } },
+      event: { select: { title: true, startsAt: true } },
+    },
+    orderBy: { event: { startsAt: "asc" } },
+  });
+  return rows.map((r) => ({
+    event_id: r.eventId,
+    user_id: r.userId,
+    name: r.user.name,
+    accepted: r.status === "accepted",
+    title: r.event.title,
+    starts_at: r.event.startsAt,
+  }));
+}
+
+/** People who share at least one group with the user. */
+export async function contacts(userId: string): Promise<Contact[]> {
+  const users = await prisma.user.findMany({
+    where: {
+      id: { not: userId },
+      disabled: false,
+      memberships: { some: { group: { memberships: { some: { userId } } } } },
+    },
+    select: { id: true, name: true, color: true },
+    orderBy: { name: "asc" },
+  });
+  return users;
 }
 
 /** Events shared into groups the user belongs to (optionally a single group). */

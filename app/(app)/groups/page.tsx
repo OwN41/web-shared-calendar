@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { CopyButton } from "@/components/CopyButton";
 import { ErrorBanner, btnCls, btnDangerCls, btnGhostCls, cardCls, inputCls } from "@/components/ui";
 import { createGroup, joinGroup, leaveGroup, regenerateInvite } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
@@ -38,6 +39,7 @@ export default async function GroupsPage({ searchParams }: PageProps<"/groups">)
                 </div>
               </div>
               <div className="flex gap-2">
+                <CopyButton text={g.invite_code} />
                 {g.role === "owner" && (
                   <form action={regenerateInvite}>
                     <input type="hidden" name="id" value={g.id} />

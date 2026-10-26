@@ -200,10 +200,21 @@ async function myGroupIds(userId: string, wanted: string[]): Promise<string[]> {
 const uuids = (fd: FormData, key: string) =>
   fd.getAll(key).map(String).filter((v) => /^[0-9a-f-]{36}$/i.test(v));
 
-export async function createEvent(fd: FormData) {
-  const user = await requireUser();
-  const t = await getTranslations("errors");
-  const back = str(fd, "back") === "/shared" ? "/shared" : "/calendar";
+/** Only people sharing a group with the inviter can be invited. */
+async function allowedInvitees(userId: string, wanted: string[]): Promise<string[]> {
+  if (!wanted.length) return [];
+  const rows = await prisma.user.findMany({
+    where: {
+      id: { in: wanted, not: userId },
+      disabled: false,
+      memberships: { some: { group: { memberships: { some: { userId } } } } },
+    },
+    select: { id: true },
+  });
+  return rows.map(({ id }) => id);
+}
+
+function readEvent(fd: FormData, back: string, t: Awaited<ReturnType<typeof getTranslations>>) {
   const title = str(fd, "title");
   const allDay = fd.get("all_day") === "on";
   const starts = parseLocalInput(str(fd, "starts_at"), allDay);
@@ -214,20 +225,32 @@ export async function createEvent(fd: FormData) {
   if (allDay) ends = new Date(ends.getTime() + 86_399_000);
   if (ends < starts) fail(back, t("eventEnd"));
 
+  return {
+    starts,
+    data: {
+      title,
+      description: str(fd, "description").slice(0, 2000),
+      location: str(fd, "location").slice(0, 200),
+      startsAt: starts,
+      endsAt: ends,
+      allDay,
+      color: COLOR.test(str(fd, "color")) ? str(fd, "color") : null,
+      repeat: isRepeat(str(fd, "repeat")) ? str(fd, "repeat") : "none",
+    },
+  };
+}
+
+export async function createEvent(fd: FormData) {
+  const user = await requireUser();
+  const t = await getTranslations("errors");
+  const back = str(fd, "back") === "/shared" ? "/shared" : "/calendar";
+  const { starts, data } = readEvent(fd, back, t);
+
   const groups = await myGroupIds(user.id, uuids(fd, "groups"));
+  const invitees = await allowedInvitees(user.id, uuids(fd, "invitees"));
   await prisma.$transaction(async (tx) => {
     const event = await tx.event.create({
-      data: {
-        ownerId: user.id,
-        title,
-        description: str(fd, "description").slice(0, 2000),
-        location: str(fd, "location").slice(0, 200),
-        startsAt: starts,
-        endsAt: ends,
-        allDay,
-        color: COLOR.test(str(fd, "color")) ? str(fd, "color") : null,
-        repeat: isRepeat(str(fd, "repeat")) ? str(fd, "repeat") : "none",
-      },
+      data: { ownerId: user.id, ...data },
       select: { id: true },
     });
     if (groups.length) {
@@ -235,9 +258,73 @@ export async function createEvent(fd: FormData) {
         data: groups.map((groupId) => ({ eventId: event.id, groupId })),
       });
     }
+    if (invitees.length) {
+      await tx.eventInvite.createMany({
+        data: invitees.map((userId) => ({ eventId: event.id, userId })),
+      });
+    }
   });
   revalidatePath("/", "layout");
   redirect(`${back}?month=${starts.toISOString().slice(0, 7)}`);
+}
+
+export async function updateEvent(fd: FormData) {
+  const user = await requireUser();
+  const t = await getTranslations("errors");
+  const back = str(fd, "back") === "/shared" ? "/shared" : "/calendar";
+  const id = str(fd, "id");
+  const { starts, data } = readEvent(fd, back, t);
+
+  const owned = await prisma.event.findFirst({ where: { id, ownerId: user.id }, select: { id: true } });
+  if (!owned) return fail(back, t("eventNotFound"));
+
+  const groups = await myGroupIds(user.id, uuids(fd, "groups"));
+  const invitees = await allowedInvitees(user.id, uuids(fd, "invitees"));
+  await prisma.$transaction(async (tx) => {
+    await tx.event.update({ where: { id }, data });
+    await tx.eventShare.deleteMany({ where: { eventId: id } });
+    if (groups.length) {
+      await tx.eventShare.createMany({
+        data: groups.map((groupId) => ({ eventId: id, groupId })),
+      });
+    }
+    // Existing invitees keep their answer; only removed ones are deleted and new ones added.
+    await tx.eventInvite.deleteMany({ where: { eventId: id, userId: { notIn: invitees } } });
+    if (invitees.length) {
+      await tx.eventInvite.createMany({
+        data: invitees.map((userId) => ({ eventId: id, userId })),
+        skipDuplicates: true,
+      });
+    }
+  });
+  revalidatePath("/", "layout");
+  redirect(`${back}?month=${starts.toISOString().slice(0, 7)}`);
+}
+
+export async function respondInvite(fd: FormData) {
+  const user = await requireUser();
+  const status = str(fd, "answer") === "accept" ? "accepted" : "declined";
+  await prisma.eventInvite.updateMany({
+    where: { eventId: str(fd, "id"), userId: user.id },
+    data: { status, ownerSeen: false },
+  });
+  revalidatePath("/", "layout");
+}
+
+export async function dismissResponses(fd: FormData) {
+  const user = await requireUser();
+  const eventId = str(fd, "id");
+  const userId = str(fd, "user");
+  await prisma.eventInvite.updateMany({
+    where: {
+      ownerSeen: false,
+      event: { ownerId: user.id },
+      ...(eventId ? { eventId } : {}),
+      ...(userId ? { userId } : {}),
+    },
+    data: { ownerSeen: true },
+  });
+  revalidatePath("/", "layout");
 }
 
 export async function deleteEvent(fd: FormData) {

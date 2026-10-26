@@ -20,6 +20,7 @@ model User {
   sessions      Session[]
   memberships   GroupMember[]
   events        Event[]
+  invites       EventInvite[]
   createdGroups Group[]       @relation("GroupCreator")
 
   @@map("users")
@@ -76,9 +77,24 @@ model Event {
   createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   shares      EventShare[]
+  invites     EventInvite[]
 
   @@index([ownerId, startsAt], map: "events_owner_start_idx")
   @@map("events")
+}
+
+model EventInvite {
+  eventId   String   @map("event_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  status    String   @default("pending")
+  ownerSeen Boolean  @default(true) @map("owner_seen")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
+  @@index([userId, status], map: "event_invites_user_idx")
+  @@map("event_invites")
 }
 
 model EventShare {
