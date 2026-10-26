@@ -34,7 +34,16 @@ export function MonthView({
     <div>
       <div className="mb-3 flex items-center justify-between">
         <Link href={href(addMonths(month, -1))} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"         aria-label={t("prevMonth")}>←</Link>
-                <h2 className="text-lg font-semibold">{formatMonth(month, locale)}</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">{formatMonth(month, locale)}</h2>
+          <Link
+            href={`${basePath}?month=${monthKey(new Date())}${extraParams}`}
+            onClick={() => onSelect(today)}
+            className="rounded-md border border-zinc-300 px-2.5 py-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {t("today")}
+          </Link>
+        </div>
                 <Link href={href(addMonths(month, 1))} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label={t("nextMonth")}>→</Link>
       </div>
       <div className="grid grid-cols-7 overflow-hidden rounded-xl border border-zinc-200 text-xs dark:border-zinc-800">
@@ -71,7 +80,7 @@ export function MonthView({
               </div>
               <div className="space-y-0.5">
                 {list.slice(0, 3).map((e) => (
-                  <div key={e.id} title={showOwner ? `${e.title} (${e.owner_name})` : e.title}
+                  <div key={e.occ} title={showOwner ? `${e.title} (${e.owner_name})` : e.title}
                     className="truncate rounded px-1 py-0.5 text-[11px] text-white"
                     style={{ background: e.owner_color }}>
                     {e.title}

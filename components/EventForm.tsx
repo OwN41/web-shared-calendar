@@ -1,25 +1,35 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { REPEATS } from "@/lib/recurrence";
 import type { Group } from "@/lib/queries";
 import { createEvent } from "@/lib/actions";
+import { LocationInput } from "./LocationInput";
 import { btnCls, btnGhostCls, inputCls } from "./ui";
+
+const COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899"];
 
 export function EventForm({
   groups,
   back,
   day,
   defaultGroupIds = [],
+  userColor,
   onClose,
 }: {
   groups: Group[];
   back: "/calendar" | "/shared";
   day: string;
   defaultGroupIds?: string[];
+  userColor: string;
   onClose: () => void;
 }) {
   const t = useTranslations("eventForm");
+  const [choice, setChoice] = useState("");
+  const [custom, setCustom] = useState("#06b6d4");
+  const customActive = choice !== "" && !COLORS.includes(choice);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -46,22 +56,68 @@ export function EventForm({
         <label className="text-sm">{t("ends")}
           <input type="datetime-local" name="ends_at" defaultValue={`${day}T10:00`} className={inputCls} />
         </label>
-        <label className="flex items-center gap-2 text-sm sm:col-span-2">
-          <input type="checkbox" name="all_day" /> {t("allDay")}
+        <label className="flex cursor-pointer items-center justify-between gap-3 text-sm sm:col-span-2">
+          {t("allDay")}
+          <input type="checkbox" name="all_day" role="switch" className="peer sr-only" />
+          <span className="relative h-6 w-11 shrink-0 rounded-full bg-zinc-300 transition peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 dark:bg-zinc-700 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-5" />
         </label>
-        <input name="location" maxLength={200} placeholder={t("location")} className={inputCls} />
+        <label className="text-sm sm:col-span-2">{t("repeat")}
+          <select name="repeat" defaultValue="none" className={inputCls}>
+            {REPEATS.map((r) => <option key={r} value={r}>{t(`repeat_${r}`)}</option>)}
+          </select>
+        </label>
+        <fieldset className="flex flex-wrap items-center gap-2 text-sm sm:col-span-2">
+          <legend className="mb-1 text-sm">{t("color")}</legend>
+          <input type="hidden" name="color" value={choice} />
+          {[["", userColor, t("colorDefault")], ...COLORS.map((c) => [c, c, c])].map(([value, shown, label]) => (
+            <button
+              key={value || "default"}
+              type="button"
+              title={label}
+              aria-label={label}
+              aria-pressed={choice === value}
+              onClick={() => setChoice(value)}
+              className={`h-7 w-7 rounded-full ring-offset-2 ring-offset-white transition dark:ring-offset-zinc-900 ${choice === value ? "ring-2 ring-blue-500" : "hover:scale-110"}`}
+              style={{ background: shown }}
+            />
+          ))}
+          <label
+            title={t("customColor")}
+            className={`relative h-7 w-7 cursor-pointer overflow-hidden rounded-full ring-offset-2 ring-offset-white transition dark:ring-offset-zinc-900 ${customActive ? "ring-2 ring-blue-500" : "hover:scale-110"}`}
+            style={{ background: customActive ? choice : "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)" }}
+          >
+            <input
+              type="color"
+              aria-label={t("customColor")}
+              value={custom}
+              onChange={(e) => {
+                setCustom(e.target.value);
+                setChoice(e.target.value);
+              }}
+              onClick={() => setChoice(custom)}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+          </label>
+        </fieldset>
+        <LocationInput name="location" placeholder={t("location")} />
         <input name="description" maxLength={2000} placeholder={t("notes")} className={inputCls} />
-        {groups.length > 0 && (
-          <fieldset className="flex flex-wrap items-center gap-3 text-sm sm:col-span-2">
-            <legend className="mb-1 text-sm font-medium">{t("shareWith")}</legend>
-            {groups.map((g) => (
-              <label key={g.id} className="flex items-center gap-1">
-                <input type="checkbox" name="groups" value={g.id} defaultChecked={defaultGroupIds.includes(g.id)} />
+        <fieldset className="flex flex-wrap items-center gap-3 text-sm sm:col-span-2">
+          <legend className="mb-1 text-sm font-medium">{t("shareWith")}</legend>
+          {groups.length === 0 && (
+            <p className="text-zinc-500">
+              {t("noGroups")}{" "}
+              <Link href="/groups" className="text-blue-600 hover:underline">{t("goToGroups")}</Link>
+            </p>
+          )}
+          {groups.map((g) => (
+            <label key={g.id} className="cursor-pointer">
+              <input type="checkbox" name="groups" value={g.id} defaultChecked={defaultGroupIds.includes(g.id)} className="peer sr-only" />
+              <span className="flex items-center gap-1.5 rounded-full border border-zinc-300 px-3 py-1 transition peer-checked:border-blue-600 peer-checked:bg-blue-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 hover:bg-zinc-100 peer-checked:hover:bg-blue-700 dark:border-zinc-700 dark:hover:bg-zinc-800">
                 {g.name}
-              </label>
-            ))}
-          </fieldset>
-        )}
+              </span>
+            </label>
+          ))}
+        </fieldset>
         <div className="flex gap-2 sm:col-span-2">
           <button className={btnCls}>{t("save")}</button>
           <button type="button" onClick={onClose} className={btnGhostCls}>{t("cancel")}</button>

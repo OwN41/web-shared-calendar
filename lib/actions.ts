@@ -20,6 +20,7 @@ import {
   verifyPassword,
 } from "./auth";
 import { parseLocalInput } from "./dates";
+import { isRepeat } from "./recurrence";
 
 const str = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const fail = (path: string, msg: string): never =>
@@ -38,6 +39,15 @@ export async function setLocale(fd: FormData) {
     sameSite: "lax",
   });
   revalidatePath("/", "layout");
+}
+
+export async function setHiddenWaste(types: string[]) {
+  const clean = types.filter((x) => typeof x === "string").slice(0, 50);
+  (await cookies()).set("wasteHidden", JSON.stringify(clean), {
+    path: "/",
+    maxAge: 365 * 86_400,
+    sameSite: "lax",
+  });
 }
 
 /* ---------- auth ---------- */
@@ -164,6 +174,8 @@ export async function createEvent(fd: FormData) {
         startsAt: starts,
         endsAt: ends,
         allDay,
+        color: COLOR.test(str(fd, "color")) ? str(fd, "color") : null,
+        repeat: isRepeat(str(fd, "repeat")) ? str(fd, "repeat") : "none",
       },
       select: { id: true },
     });

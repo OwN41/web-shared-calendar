@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { CalendarBoard } from "@/components/CalendarBoard";
 import { ErrorBanner } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { addMonths, monthKey, parseMonth } from "@/lib/dates";
+import { monthGrid, monthKey, parseMonth } from "@/lib/dates";
 import { groupMembers, myGroups, sharedEvents } from "@/lib/queries";
 
 export default async function SharedPage({ searchParams }: PageProps<"/shared">) {
@@ -13,8 +13,10 @@ export default async function SharedPage({ searchParams }: PageProps<"/shared">)
   const month = parseMonth(typeof sp.month === "string" ? sp.month : undefined);
   const groups = await myGroups(user.id);
   const selected = groups.find((g) => g.id === sp.group);
+  const grid = monthGrid(month);
+  const gridEnd = new Date(grid[grid.length - 1].getTime() + 86_400_000);
   const [events, members] = await Promise.all([
-    sharedEvents(user.id, month, addMonths(month, 1), selected?.id),
+    sharedEvents(user.id, grid[0], gridEnd, selected?.id),
     groupMembers((selected ? [selected] : groups).map((g) => g.id)),
   ]);
   const people = [...new Map(members.map((m) => [m.name + m.color, m])).values()];
@@ -53,6 +55,7 @@ export default async function SharedPage({ searchParams }: PageProps<"/shared">)
             events={events}
             groups={groups}
             userId={user.id}
+            userColor={user.color}
             showOwner
             extraParams={selected ? `&group=${selected.id}` : ""}
             defaultGroupIds={selected ? [selected.id] : []}

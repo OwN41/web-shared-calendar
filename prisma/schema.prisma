@@ -72,6 +72,8 @@ model Event {
   startsAt    DateTime     @map("starts_at") @db.Timestamptz(6)
   endsAt      DateTime     @map("ends_at") @db.Timestamptz(6)
   allDay      Boolean      @default(false) @map("all_day")
+  color       String?
+  repeat      String       @default("none")
   createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   shares      EventShare[]

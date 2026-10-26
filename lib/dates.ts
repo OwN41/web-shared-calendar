@@ -28,8 +28,10 @@ export function parseLocalInput(value: string, allDay: boolean): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export const formatTime = (d: Date) =>
-  `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+export const formatTime = (d: Date, locale = "de") =>
+  locale === "de"
+    ? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
+    : `${d.getUTCHours() % 12 || 12}:${pad(d.getUTCMinutes())} ${d.getUTCHours() < 12 ? "AM" : "PM"}`;
 
 export const formatDay = (d: Date, locale: string) =>
   d.toLocaleDateString(locale, {

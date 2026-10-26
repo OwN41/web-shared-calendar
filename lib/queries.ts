@@ -1,8 +1,10 @@
 import "server-only";
 import { prisma } from "./db";
+import { isRepeat, occurrences, type Repeat } from "./recurrence";
 
 export type CalEvent = {
   id: string;
+  occ: string;
   owner_id: string;
   owner_name: string;
   owner_color: string;
@@ -12,6 +14,7 @@ export type CalEvent = {
   starts_at: Date;
   ends_at: Date;
   all_day: boolean;
+  repeat: Repeat;
   group_ids: string[];
 };
 
@@ -33,23 +36,36 @@ function eventResult(
     startsAt: Date;
     endsAt: Date;
     allDay: boolean;
+    color: string | null;
+    repeat: string;
     owner: { name: string; color: string };
     shares: { groupId: string }[];
   },
-): CalEvent {
-  return {
+  from: Date,
+  to: Date,
+): CalEvent[] {
+  const repeat = isRepeat(event.repeat) ? event.repeat : "none";
+  return occurrences(event.startsAt, event.endsAt, repeat, from, to).map(({ start, end }) => ({
     id: event.id,
+    occ: `${event.id}:${start.getTime()}`,
     owner_id: event.ownerId,
     owner_name: event.owner.name,
-    owner_color: event.owner.color,
+    owner_color: event.color ?? event.owner.color,
     title: event.title,
     description: event.description,
     location: event.location,
-    starts_at: event.startsAt,
-    ends_at: event.endsAt,
+    starts_at: start,
+    ends_at: end,
     all_day: event.allDay,
+    repeat,
     group_ids: event.shares.map(({ groupId }) => groupId),
-  };
+  }));
+}
+
+function expand(events: Parameters<typeof eventResult>[0][], from: Date, to: Date) {
+  return events
+    .flatMap((e) => eventResult(e, from, to))
+    .sort((a, b) => a.starts_at.getTime() - b.starts_at.getTime());
 }
 
 const eventInclude = {
@@ -57,25 +73,25 @@ const eventInclude = {
   shares: { select: { groupId: true } },
 } as const;
 
+// Repeating events can start long before the range, so only the start bound applies to them.
+const inRange = (from: Date, to: Date) => ({
+  startsAt: { lt: to },
+  OR: [{ repeat: { not: "none" } }, { endsAt: { gte: from } }],
+});
+
 export async function myEvents(userId: string, from: Date, to: Date) {
   const events = await prisma.event.findMany({
-    where: {
-      ownerId: userId,
-      startsAt: { lt: to },
-      endsAt: { gte: from },
-    },
+    where: { ownerId: userId, ...inRange(from, to) },
     include: eventInclude,
-    orderBy: { startsAt: "asc" },
   });
-  return events.map(eventResult);
+  return expand(events, from, to);
 }
 
 /** Events shared into groups the user belongs to (optionally a single group). */
 export async function sharedEvents(userId: string, from: Date, to: Date, groupId?: string) {
   const events = await prisma.event.findMany({
     where: {
-      startsAt: { lt: to },
-      endsAt: { gte: from },
+      ...inRange(from, to),
       shares: {
         some: {
           ...(groupId ? { groupId } : {}),
@@ -84,9 +100,8 @@ export async function sharedEvents(userId: string, from: Date, to: Date, groupId
       },
     },
     include: eventInclude,
-    orderBy: { startsAt: "asc" },
   });
-  return events.map(eventResult);
+  return expand(events, from, to);
 }
 
 export async function myGroups(userId: string): Promise<Group[]> {

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { logout } from "@/lib/actions";
 import type { User } from "@/lib/auth";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { ThemeToggle } from "./ThemeToggle";
 
 export async function Nav({ user }: { user: User }) {
   const t = await getTranslations("nav");
@@ -28,6 +29,7 @@ export async function Nav({ user }: { user: User }) {
           )}
         </nav>
         <LanguageSwitcher />
+        <ThemeToggle />
         <span className="flex items-center gap-2 text-sm">
           <span className="inline-block h-3 w-3 rounded-full" style={{ background: user.color }} />
           <Link href="/settings" className="hover:underline" title={t("settings")}>{user.name}</Link>

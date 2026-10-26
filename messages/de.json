@@ -6,7 +6,7 @@
   "nav": {
     "brand": "📅 Familienkalender",
     "myCalendar": "Mein Kalender",
-    "shared": "Gemeinsam",
+    "shared": "Geteilt",
     "groups": "Gruppen",
     "admin": "Admin",
     "settings": "Einstellungen",
@@ -16,6 +16,9 @@
     "label": "Sprache",
     "en": "English",
     "de": "Deutsch"
+  },
+  "theme": {
+    "toggle": "Zwischen hellem und dunklem Modus wechseln"
   },
   "auth": {
     "login": "Anmelden",
@@ -41,6 +44,8 @@
     "dayLabel": "{day}, {count, plural, =0 {keine Termine} one {# Termin} other {# Termine}}. Doppelklick, um einen Termin hinzuzufügen.",
     "selectDay": "Tag auswählen",
     "dayPanel": "Termine des ausgewählten Tages",
+    "waste": "Müllabfuhr",
+    "today": "Heute",
     "doubleClickHint": "Doppelklick auf einen Tag, um einen Termin hinzuzufügen.",
     "noGroup": "Du bist noch in keiner Gruppe.",
     "createOrJoin": "Erstelle oder tritt einer bei,",
@@ -48,6 +53,10 @@
     "allGroups": "Alle Gruppen"
   },
   "events": {
+    "repeat_daily": "täglich",
+    "repeat_weekly": "wöchentlich",
+    "repeat_monthly": "monatlich",
+    "repeat_yearly": "jährlich",
     "nothing": "Nichts geplant.",
     "allDay": "ganztägig",
     "you": "Du",
@@ -66,6 +75,18 @@
     "location": "Ort",
     "notes": "Notizen",
     "shareWith": "Teilen mit",
+    "repeat": "Wiederholung",
+    "repeat_none": "Keine Wiederholung",
+    "repeat_daily": "Täglich",
+    "repeat_weekly": "Wöchentlich",
+    "repeat_monthly": "Monatlich",
+    "repeat_yearly": "Jährlich",
+    "ownColor": "Eigene Farbe",
+    "color": "Farbe",
+    "colorDefault": "Standard (deine Profilfarbe)",
+    "customColor": "Eigene Farbe wählen",
+    "noGroups": "Du bist noch in keiner Gruppe.",
+    "goToGroups": "Gruppe erstellen oder beitreten",
     "save": "Termin speichern",
     "cancel": "Abbrechen"
   },

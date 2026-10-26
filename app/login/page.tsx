@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { login } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/auth";
 import { ErrorBanner, btnCls, cardCls, inputCls } from "@/components/ui";
@@ -22,7 +23,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           {t("noAccount")} <Link href="/register" className="text-blue-600">{t("register")}</Link>
         </p>
       </form>
-      <LanguageSwitcher />
+      <div className="flex items-center gap-1"><LanguageSwitcher /><ThemeToggle /></div>
     </main>
   );
 }

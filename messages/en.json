@@ -17,6 +17,9 @@
     "en": "English",
     "de": "Deutsch"
   },
+  "theme": {
+    "toggle": "Switch between light and dark mode"
+  },
   "auth": {
     "login": "Log in",
     "loginField": "Username or email",
@@ -41,6 +44,8 @@
     "dayLabel": "{day}, {count, plural, =0 {no appointments} one {# appointment} other {# appointments}}. Double-click to add an appointment.",
     "selectDay": "Select a day",
     "dayPanel": "Appointments of the selected day",
+    "waste": "Waste collection",
+    "today": "Today",
     "doubleClickHint": "Double-click a day to add an appointment.",
     "noGroup": "You are not in a group yet.",
     "createOrJoin": "Create or join one",
@@ -48,6 +53,10 @@
     "allGroups": "All groups"
   },
   "events": {
+    "repeat_daily": "daily",
+    "repeat_weekly": "weekly",
+    "repeat_monthly": "monthly",
+    "repeat_yearly": "yearly",
     "nothing": "Nothing planned.",
     "allDay": "all day",
     "you": "You",
@@ -66,6 +75,18 @@
     "location": "Location",
     "notes": "Notes",
     "shareWith": "Share with",
+    "repeat": "Repeat",
+    "repeat_none": "Does not repeat",
+    "repeat_daily": "Daily",
+    "repeat_weekly": "Weekly",
+    "repeat_monthly": "Monthly",
+    "repeat_yearly": "Yearly",
+    "ownColor": "Own colour",
+    "color": "Colour",
+    "colorDefault": "Default (your profile colour)",
+    "customColor": "Pick your own colour",
+    "noGroups": "You are not in a group yet.",
+    "goToGroups": "Create or join one",
     "save": "Save appointment",
     "cancel": "Cancel"
   },
