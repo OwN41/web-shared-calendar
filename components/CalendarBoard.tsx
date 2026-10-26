@@ -7,6 +7,7 @@ import { setHiddenWaste as saveHiddenWaste } from "@/lib/actions";
 import { formatLongDay, monthKey, ymd } from "@/lib/dates";
 import { EventForm } from "./EventForm";
 import { EventList } from "./EventList";
+import { btnCls } from "./ui";
 import { MonthView } from "./MonthView";
 
 export function CalendarBoard({
@@ -117,8 +118,13 @@ export function CalendarBoard({
         }}
       />
       <aside aria-label={t("dayPanel")} className="min-w-0">
+        {selected && (
+          <button type="button" onClick={() => setCreating(selected)} className={`${btnCls} mb-3 hidden w-full [@media(pointer:coarse)]:block`}>
+            {t("newEvent")}
+          </button>
+        )}
         <EventList events={dayEvents} groups={groups} userId={userId} heading={heading} />
-        <p className="mt-3 text-xs text-zinc-500">{t("doubleClickHint")}</p>
+        <p className="mt-3 hidden text-xs text-zinc-500 [@media(pointer:fine)]:block">{t("doubleClickHint")}</p>
       </aside>
       {creating && (
         <EventForm

@@ -43,6 +43,7 @@
     "more": "+{count} weitere",
     "dayLabel": "{day}, {count, plural, =0 {keine Termine} one {# Termin} other {# Termine}}. Doppelklick, um einen Termin hinzuzufügen.",
     "selectDay": "Tag auswählen",
+    "newEvent": "Neuer Termin",
     "dayPanel": "Termine des ausgewählten Tages",
     "waste": "Müllabfuhr",
     "today": "Heute",

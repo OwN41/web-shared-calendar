@@ -8,12 +8,12 @@ appointments with groups, and sees a combined view of what others shared.
 - Registration and login with email and password (the first account becomes admin)
 - Month calendar; double-click a day to create an appointment
 - Appointments with date/time (24h), all-day switch, location (with address
-  suggestions and a Google Maps link), note, own colour and repeat
+  suggestions and a Google Maps link), note, own color and repeat
   (daily / weekly / monthly / yearly)
 - Groups: share appointments with one or more groups; "Shared" page shows what
   is shared with you
 - Admin area for managing users and groups
-- Profile settings: name, email, password and calendar colour
+- Profile settings: name, email, password and calendar color
 - English and German (cookie-based, switchable in the header), dark/light theme
 - Responsive layout with a side drawer navigation on mobile
 - Optional waste collection dates from an ICS feed, with per-type filters
@@ -75,23 +75,23 @@ otherwise the Prisma engine file may be locked.
 
 ## Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | yes | PostgreSQL connection string, e.g. `postgresql://user:password@localhost:5432/shared_calendar`. URL-encode special characters in the password. |
-| `COLLECTION_DATES_URL` | no | URL of an ICS feed with waste collection dates. Shown in "My calendar" only. Without it, no waste chips are shown. |
+| Variable               | Required | Description                                                                                                                                    |
+| ---------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`         | yes      | PostgreSQL connection string, e.g. `postgresql://user:password@localhost:5432/shared_calendar`. URL-encode special characters in the password. |
+| `COLLECTION_DATES_URL` | no       | URL of an ICS feed with waste collection dates. Shown in "My calendar" only. Without it, no waste chips are shown.                             |
 
 Never commit `.env.local`.
 
 ## Scripts
 
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Development server |
-| `npm run build` / `npm start` | Production build and server |
-| `npm run lint` | ESLint |
-| `npm run db:migrate` | Apply migrations (`prisma migrate deploy`) |
-| `npx tsc --noEmit` | Type check |
-| `npx prisma migrate dev --name <change>` | Create a new migration during development |
+| Command                                  | Purpose                                    |
+| ---------------------------------------- | ------------------------------------------ |
+| `npm run dev`                            | Development server                         |
+| `npm run build` / `npm start`            | Production build and server                |
+| `npm run lint`                           | ESLint                                     |
+| `npm run db:migrate`                     | Apply migrations (`prisma migrate deploy`) |
+| `npx tsc --noEmit`                       | Type check                                 |
+| `npx prisma migrate dev --name <change>` | Create a new migration during development  |
 
 Do not edit a migration after it has been applied to a shared database.
 For a database that already has the tables from the old SQL setup, baseline the
