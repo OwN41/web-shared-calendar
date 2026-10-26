@@ -52,8 +52,7 @@
     "today": "Today",
     "doubleClickHint": "Double-click a day to add an appointment.",
     "noGroup": "You are not in a group yet.",
-    "createOrJoin": "Create or join one",
-    "toShare": "to share appointments.",
+    "emptyHint": "Groups let you share appointments with family or friends. Create a group and send them its invite code, or enter a code you received to join theirs.",
     "allGroups": "All groups"
   },
   "events": {

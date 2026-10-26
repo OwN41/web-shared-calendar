@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { CalendarBoard } from "@/components/CalendarBoard";
-import { ErrorBanner } from "@/components/ui";
+import { ErrorBanner, btnCls, cardCls, inputCls } from "@/components/ui";
+import { createGroup, joinGroup } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
 import { monthGrid, monthKey, parseMonth } from "@/lib/dates";
 import { contacts, groupMembers, myGroups, sharedEvents } from "@/lib/queries";
@@ -9,6 +10,7 @@ import { contacts, groupMembers, myGroups, sharedEvents } from "@/lib/queries";
 export default async function SharedPage({ searchParams }: PageProps<"/shared">) {
   const user = await requireUser();
   const t = await getTranslations("calendar");
+  const g = await getTranslations("groups");
   const sp = await searchParams;
   const month = parseMonth(typeof sp.month === "string" ? sp.month : undefined);
   const groups = await myGroups(user.id);
@@ -29,9 +31,27 @@ export default async function SharedPage({ searchParams }: PageProps<"/shared">)
       <h1 className="text-xl font-semibold">{t("sharedTitle")}</h1>
       <ErrorBanner message={typeof sp.error === "string" ? sp.error : undefined} />
       {groups.length === 0 ? (
-        <p className="text-sm">
-          {t("noGroup")} <Link href="/groups" className="text-blue-600">{t("createOrJoin")}</Link> {t("toShare")}
-        </p>
+        <section className={`${cardCls} space-y-5 p-6`}>
+          <div className="flex items-start gap-4">
+            <span className="text-4xl" aria-hidden>👨‍👩‍👧‍👦</span>
+            <div>
+              <h2 className="text-lg font-semibold">{t("noGroup")}</h2>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{t("emptyHint")}</p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <form action={createGroup} className="space-y-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+              <h3 className="font-medium">{g("createTitle")}</h3>
+              <input name="name" required maxLength={80} placeholder={g("namePlaceholder")} className={inputCls} />
+              <button className={btnCls}>{g("create")}</button>
+            </form>
+            <form action={joinGroup} className="space-y-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+              <h3 className="font-medium">{g("joinTitle")}</h3>
+              <input name="code" required placeholder={g("codePlaceholder")} className={`${inputCls} uppercase`} />
+              <button className={btnCls}>{g("join")}</button>
+            </form>
+          </div>
+        </section>
       ) : (
         <>
           <div className="flex flex-wrap gap-2">

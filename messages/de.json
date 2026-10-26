@@ -52,8 +52,7 @@
     "today": "Heute",
     "doubleClickHint": "Doppelklick auf einen Tag, um einen Termin hinzuzufügen.",
     "noGroup": "Du bist noch in keiner Gruppe.",
-    "createOrJoin": "Erstelle oder tritt einer bei,",
-    "toShare": "um Termine zu teilen.",
+    "emptyHint": "Mit Gruppen teilst du Termine mit Familie oder Freunden. Erstelle eine Gruppe und schicke ihnen den Einladungscode, oder gib einen erhaltenen Code ein, um einer Gruppe beizutreten.",
     "allGroups": "Alle Gruppen"
   },
   "events": {
