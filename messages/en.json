@@ -46,6 +46,7 @@
     "newEvent": "New appointment",
     "dayPanel": "Appointments of the selected day",
     "waste": "Waste collection",
+    "wasteShown": "{shown} of {total} shown",
     "today": "Today",
     "doubleClickHint": "Double-click a day to add an appointment.",
     "noGroup": "You are not in a group yet.",

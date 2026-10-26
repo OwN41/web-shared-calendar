@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { CalEvent, Contact, Group } from "@/lib/queries";
 import { setHiddenWaste as saveHiddenWaste } from "@/lib/actions";
@@ -46,6 +46,23 @@ export function CalendarBoard({
     return [...m];
   }, [waste]);
 
+  const wasteMenu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (e: Event) => {
+      const el = wasteMenu.current;
+      if (el?.open && !(e.target instanceof Node && el.contains(e.target))) el.open = false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && wasteMenu.current) wasteMenu.current.open = false;
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
   function toggleWaste(type: string) {
     const next = hiddenWaste.includes(type) ? hiddenWaste.filter((x) => x !== type) : [...hiddenWaste, type];
     setHiddenWaste(next);
@@ -87,6 +104,25 @@ export function CalendarBoard({
     {(wasteTypes.length > 0 || basePath === "/calendar") && (
       <div className="flex min-h-[30px] flex-wrap items-center gap-2 text-sm" role="group" aria-label={t("waste")}>
         <span className="text-zinc-500">{t("waste")}:</span>
+        {wasteTypes.length > 0 && (
+          <details ref={wasteMenu} className="relative md:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-zinc-300 px-3 py-1 dark:border-zinc-700 [&::-webkit-details-marker]:hidden">
+              {t("wasteShown", { shown: wasteTypes.length - hiddenWaste.filter((h) => wasteTypes.some(([x]) => x === h)).length, total: wasteTypes.length })}
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </summary>
+            <div className="absolute left-0 z-20 mt-1 min-w-56 rounded-md border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+              {wasteTypes.map(([type, color]) => (
+                <label key={type} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <input type="checkbox" checked={!hiddenWaste.includes(type)} onChange={() => toggleWaste(type)} className="h-4 w-4" />
+                  <span className="inline-block h-3 w-3 rounded-full" style={{ background: color }} />
+                  {type}
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
         {wasteTypes.map(([type, color]) => {
           const on = !hiddenWaste.includes(type);
           return (
@@ -95,7 +131,7 @@ export function CalendarBoard({
               type="button"
               aria-pressed={on}
               onClick={() => toggleWaste(type)}
-              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${
+              className={`hidden items-center gap-1.5 rounded-full border px-3 py-1 md:flex ${
                 on ? "border-transparent text-white" : "border-zinc-300 text-zinc-500 line-through dark:border-zinc-700"
               }`}
               style={on ? { background: color } : undefined}

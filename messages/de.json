@@ -46,6 +46,7 @@
     "newEvent": "Neuer Termin",
     "dayPanel": "Termine des ausgewählten Tages",
     "waste": "Müllabfuhr",
+    "wasteShown": "{shown} von {total} angezeigt",
     "today": "Heute",
     "doubleClickHint": "Doppelklick auf einen Tag, um einen Termin hinzuzufügen.",
     "noGroup": "Du bist noch in keiner Gruppe.",
