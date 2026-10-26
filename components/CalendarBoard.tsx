@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { CalEvent, Contact, Group } from "@/lib/queries";
 import { setHiddenWaste as saveHiddenWaste } from "@/lib/actions";
 import { formatLongDay, monthKey, ymd } from "@/lib/dates";
 import { EventForm } from "./EventForm";
+import { Dropdown } from "./Dropdown";
 import { EventList } from "./EventList";
 import { btnCls } from "./ui";
 import { MonthView } from "./MonthView";
@@ -45,23 +46,6 @@ export function CalendarBoard({
     for (const w of waste) m.set(w.title, w.owner_color);
     return [...m];
   }, [waste]);
-
-  const wasteMenu = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const close = (e: Event) => {
-      const el = wasteMenu.current;
-      if (el?.open && !(e.target instanceof Node && el.contains(e.target))) el.open = false;
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && wasteMenu.current) wasteMenu.current.open = false;
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
 
   function toggleWaste(type: string) {
     const next = hiddenWaste.includes(type) ? hiddenWaste.filter((x) => x !== type) : [...hiddenWaste, type];
@@ -105,23 +89,40 @@ export function CalendarBoard({
       <div className="flex min-h-[30px] flex-wrap items-center gap-2 text-sm" role="group" aria-label={t("waste")}>
         <span className="text-zinc-500">{t("waste")}:</span>
         {wasteTypes.length > 0 && (
-          <details ref={wasteMenu} className="relative md:hidden">
-            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-zinc-300 px-3 py-1 dark:border-zinc-700 [&::-webkit-details-marker]:hidden">
-              {t("wasteShown", { shown: wasteTypes.length - hiddenWaste.filter((h) => wasteTypes.some(([x]) => x === h)).length, total: wasteTypes.length })}
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </summary>
-            <div className="popup-enter absolute left-0 z-20 mt-1 min-w-56 rounded-md border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-              {wasteTypes.map(([type, color]) => (
-                <label key={type} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-                  <input type="checkbox" checked={!hiddenWaste.includes(type)} onChange={() => toggleWaste(type)} className="h-4 w-4" />
-                  <span className="inline-block h-3 w-3 rounded-full" style={{ background: color }} />
-                  {type}
+          <Dropdown
+            title={t("waste")}
+            ariaLabel={t("waste")}
+            wrapperClassName="relative md:hidden"
+            summaryClassName="flex cursor-pointer items-center gap-2 rounded-full border border-zinc-300 px-3 py-1 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            panelClassName="absolute left-0 z-20 mt-1 min-w-56 rounded-md border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+            summary={
+              <>
+                {t("wasteShown", { shown: wasteTypes.length - hiddenWaste.filter((h) => wasteTypes.some(([x]) => x === h)).length, total: wasteTypes.length })}
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </>
+            }
+          >
+            {wasteTypes.map(([type, color]) => {
+              const on = !hiddenWaste.includes(type);
+              return (
+                <label key={type} className="flex cursor-pointer items-center gap-3 rounded px-3 py-2 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                  <input type="checkbox" checked={on} onChange={() => toggleWaste(type)} className="peer sr-only" />
+                  <span
+                    aria-hidden
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-all duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-1 peer-active:scale-90"
+                    style={{ background: on ? color : "transparent", borderColor: on ? color : "#a1a1aa" }}
+                  >
+                    <svg viewBox="0 0 24 24" className={`h-3.5 w-3.5 text-white transition-all duration-150 ${on ? "scale-100 opacity-100" : "scale-50 opacity-0"}`} fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m5 12 5 5 9-10" />
+                    </svg>
+                  </span>
+                  <span className={`transition-opacity ${on ? "" : "opacity-60"}`}>{type}</span>
                 </label>
-              ))}
-            </div>
-          </details>
+              );
+            })}
+          </Dropdown>
         )}
         {wasteTypes.map(([type, color]) => {
           const on = !hiddenWaste.includes(type);
@@ -131,7 +132,7 @@ export function CalendarBoard({
               type="button"
               aria-pressed={on}
               onClick={() => toggleWaste(type)}
-              className={`hidden items-center gap-1.5 rounded-full border px-3 py-1 md:flex ${
+              className={`hidden items-center gap-1.5 rounded-full border px-3 py-1 transition-all duration-200 active:scale-95 md:flex ${
                 on ? "border-transparent text-white" : "border-zinc-300 text-zinc-500 line-through dark:border-zinc-700"
               }`}
               style={on ? { background: color } : undefined}

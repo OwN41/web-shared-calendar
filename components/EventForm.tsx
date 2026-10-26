@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { REPEATS } from "@/lib/recurrence";
 import type { CalEvent, Contact, Group } from "@/lib/queries";
 import { createEvent, updateEvent } from "@/lib/actions";
+import { pushBackHandler } from "@/lib/backStack";
 import { DateTimeInput } from "./DateTimeInput";
 import { LocationInput } from "./LocationInput";
 import { ReminderPicker } from "./ReminderPicker";
@@ -45,11 +46,36 @@ export function EventForm({
       : isoLocal(event.series_end)
     : `${day}T10:00`;
   const groupIds = event ? event.group_ids : defaultGroupIds;
+  const onCloseRef = useRef(onClose);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    onCloseRef.current = onClose;
+  });
+  const mounted = useRef(false);
+
+  // The form gets its own history entry so the phone's back button closes it instead of leaving the page.
+  useEffect(() => {
+    mounted.current = true;
+    if (!window.history.state?.eventForm) {
+      window.history.pushState({ ...window.history.state, eventForm: true }, "");
+    }
+    const onPop = (e: PopStateEvent) => {
+      if (!e.state?.eventForm) onCloseRef.current();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
+    const removeBack = pushBackHandler(() => onCloseRef.current());
+    window.addEventListener("popstate", onPop);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    return () => {
+      removeBack();
+      mounted.current = false;
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("keydown", onKey);
+      // Closed by cancel, Escape or the backdrop: drop the extra entry. Skipped on a re-mount or after a navigation.
+      setTimeout(() => {
+        if (!mounted.current && window.history.state?.eventForm) window.history.back();
+      }, 0);
+    };
+  }, []);
 
   return (
     <div

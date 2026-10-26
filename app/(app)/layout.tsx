@@ -1,4 +1,5 @@
 import { Nav } from "@/components/Nav";
+import { NativeBack } from "@/components/NativeBack";
 import { OfflineSupport } from "@/components/OfflineSupport";
 import { requireUser } from "@/lib/auth";
 
@@ -8,6 +9,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <>
       <Nav user={user} />
       <OfflineSupport userId={user.id} />
+      <NativeBack />
       <main className="w-full flex-1 p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-8 lg:px-12 lg:pt-6">{children}</main>
     </>
   );
