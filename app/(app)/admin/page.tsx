@@ -47,7 +47,7 @@ export default async function AdminDashboard() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label="Status" value={<span className="text-green-600">● Online</span>} hint={`query latency ${s.latencyMs} ms`} />
           <Stat label="Size" value={s.db.size} />
-          <Stat label="Connections" value={`${s.db.connections} / ${s.db.max_connections}`} hint={`${connPct}% of database limit`} />
+          <Stat label="Open DB connections" value={`${s.db.connections} / ${s.db.max_connections}`} hint={`${connPct}% of the allowed maximum in use`} />
           <Stat label="Up since" value={s.db.started.toLocaleDateString("en-GB")} hint={s.db.version.split(" on ")[0]} />
         </div>
         <div className={`${cardCls} overflow-x-auto`}>
