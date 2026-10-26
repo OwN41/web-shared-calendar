@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { btnDangerCls, btnGhostCls, cardCls, inputCls } from "@/components/ui";
 import { adminAddMember, adminDeleteGroup, adminRemoveMember } from "@/lib/actions";
 import { requireAdmin } from "@/lib/auth";
@@ -5,12 +6,13 @@ import { adminGroupMembers, adminGroups } from "@/lib/queries";
 
 export default async function AdminGroups() {
   await requireAdmin();
+  const t = await getTranslations("admin");
   const [groups, members] = await Promise.all([adminGroups(), adminGroupMembers()]);
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Groups</h1>
-      {groups.length === 0 && <p className="text-sm text-zinc-500">No groups yet.</p>}
+      <h1 className="text-xl font-semibold">{t("groups")}</h1>
+      {groups.length === 0 && <p className="text-sm text-zinc-500">{t("noGroups")}</p>}
       <ul className="space-y-3">
         {groups.map((g) => (
           <li key={g.id} className={cardCls}>
@@ -18,30 +20,30 @@ export default async function AdminGroups() {
               <div>
                 <div className="font-medium">{g.name}</div>
                 <div className="text-sm text-zinc-500">
-                  created by {g.creator ?? "deleted user"} · code <code className="font-mono">{g.invite_code}</code>
+                  {t("groupMeta", { creator: g.creator ?? t("deletedUser") })} <code className="font-mono">{g.invite_code}</code>
                 </div>
               </div>
               <form action={adminDeleteGroup}>
                 <input type="hidden" name="id" value={g.id} />
-                <button className={btnDangerCls}>Delete group</button>
+                <button className={btnDangerCls}>{t("deleteGroup")}</button>
               </form>
             </div>
             <ul className="mt-2 space-y-1 text-sm">
               {members.filter((m) => m.group_id === g.id).map((m) => (
                 <li key={m.user_id} className="flex items-center justify-between">
-                  <span>{m.name} <span className="text-zinc-500">({m.email}{m.role === "owner" ? ", owner" : ""})</span></span>
+                  <span>{m.name} <span className="text-zinc-500">({m.email}{m.role === "owner" ? t("ownerSuffix") : ""})</span></span>
                   <form action={adminRemoveMember}>
                     <input type="hidden" name="group_id" value={g.id} />
                     <input type="hidden" name="user_id" value={m.user_id} />
-                    <button className="text-red-600 hover:underline">remove</button>
+                    <button className="text-red-600 hover:underline">{t("remove")}</button>
                   </form>
                 </li>
               ))}
             </ul>
             <form action={adminAddMember} className="mt-2 flex gap-2">
               <input type="hidden" name="group_id" value={g.id} />
-              <input name="email" type="email" required placeholder="Add member by email" className={inputCls} />
-              <button className={btnGhostCls}>Add</button>
+              <input name="email" type="email" required               placeholder={t("addMember")} className={inputCls} />
+                            <button className={btnGhostCls}>{t("add")}</button>
             </form>
           </li>
         ))}

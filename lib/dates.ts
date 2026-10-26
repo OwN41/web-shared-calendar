@@ -31,20 +31,34 @@ export function parseLocalInput(value: string, allDay: boolean): Date | null {
 export const formatTime = (d: Date) =>
   `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 
-export const formatDay = (d: Date) =>
-  d.toLocaleDateString("en-GB", {
+export const formatDay = (d: Date, locale: string) =>
+  d.toLocaleDateString(locale, {
     weekday: "short",
     day: "numeric",
     month: "short",
     timeZone: "UTC",
   });
 
-export const formatMonth = (d: Date) =>
-  d.toLocaleDateString("en-GB", {
+export const formatLongDay = (key: string, locale: string) =>
+  new Date(`${key}T00:00:00Z`).toLocaleDateString(locale, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  });
+
+export const formatMonth = (d: Date, locale: string) =>
+  d.toLocaleDateString(locale, {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
+
+/** Monday-first short weekday names. */
+export const weekdayNames = (locale: string) =>
+  Array.from({ length: 7 }, (_, i) =>
+    new Date(Date.UTC(2024, 0, 1 + i)).toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" }),
+  );
 
 /** Monday-first grid of days covering the month. */
 export function monthGrid(month: Date): Date[] {

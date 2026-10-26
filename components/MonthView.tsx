@@ -1,51 +1,71 @@
+"use client";
+
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import type { CalEvent } from "@/lib/queries";
-import { addMonths, formatMonth, monthGrid, monthKey, ymd } from "@/lib/dates";
+import { addMonths, formatMonth, monthGrid, monthKey, weekdayNames, ymd } from "@/lib/dates";
 
 export function MonthView({
   basePath,
   month,
-  events,
+  byDay,
   extraParams = "",
   showOwner = false,
+  selected,
+  onSelect,
+  onCreate,
 }: {
   basePath: string;
   month: Date;
-  events: CalEvent[];
+  byDay: Map<string, CalEvent[]>;
   extraParams?: string;
   showOwner?: boolean;
+  selected: string | null;
+  onSelect: (day: string) => void;
+  onCreate: (day: string) => void;
 }) {
+  const t = useTranslations("calendar");
+  const locale = useLocale();
   const days = monthGrid(month);
   const today = ymd(new Date());
   const href = (m: Date) => `${basePath}?month=${monthKey(m)}${extraParams}`;
 
-  const byDay = new Map<string, CalEvent[]>();
-  for (const e of events) {
-    // Spread multi-day events over each day they cover.
-    for (let t = new Date(Date.UTC(e.starts_at.getUTCFullYear(), e.starts_at.getUTCMonth(), e.starts_at.getUTCDate()));
-      t <= e.ends_at; t = new Date(t.getTime() + 86_400_000)) {
-      const k = ymd(t);
-      byDay.set(k, [...(byDay.get(k) ?? []), e]);
-    }
-  }
-
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <Link href={href(addMonths(month, -1))} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Previous month">←</Link>
-        <h2 className="text-lg font-semibold">{formatMonth(month)}</h2>
-        <Link href={href(addMonths(month, 1))} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="Next month">→</Link>
+        <Link href={href(addMonths(month, -1))} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"         aria-label={t("prevMonth")}>←</Link>
+                <h2 className="text-lg font-semibold">{formatMonth(month, locale)}</h2>
+                <Link href={href(addMonths(month, 1))} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label={t("nextMonth")}>→</Link>
       </div>
       <div className="grid grid-cols-7 overflow-hidden rounded-xl border border-zinc-200 text-xs dark:border-zinc-800">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                {weekdayNames(locale).map((d) => (
           <div key={d} className="bg-zinc-100 p-1.5 text-center font-medium dark:bg-zinc-900">{d}</div>
         ))}
         {days.map((d) => {
           const k = ymd(d);
           const inMonth = d.getUTCMonth() === month.getUTCMonth();
           const list = byDay.get(k) ?? [];
+          const isSelected = k === selected;
           return (
-            <div key={k} className={`min-h-20 border-t border-l border-zinc-200 p-1 dark:border-zinc-800 sm:min-h-28 ${inMonth ? "" : "bg-zinc-50 text-zinc-400 dark:bg-zinc-950"}`}>
+            <div
+              key={k}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              aria-label={t("dayLabel", { day: k, count: list.length })}
+              onClick={() => onSelect(k)}
+              onDoubleClick={() => onCreate(k)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onCreate(k);
+                else if (e.key === " ") {
+                  e.preventDefault();
+                  onSelect(k);
+                }
+              }}
+              className={`min-h-20 cursor-pointer select-none border-t border-l border-zinc-200 p-1 [touch-action:manipulation] dark:border-zinc-800 sm:min-h-28 lg:min-h-[calc((100dvh-14rem)/6)] ${
+                inMonth ? "" : "bg-zinc-50 text-zinc-400 dark:bg-zinc-950"
+              } ${isSelected ? "bg-blue-50 ring-2 ring-inset ring-blue-500 dark:bg-blue-950/40" : "hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}
+            >
               <div className={`mb-1 inline-flex h-6 w-6 items-center justify-center rounded-full ${k === today ? "bg-blue-600 text-white" : ""}`}>
                 {d.getUTCDate()}
               </div>
@@ -57,7 +77,7 @@ export function MonthView({
                     {e.title}
                   </div>
                 ))}
-                {list.length > 3 && <div className="px-1 text-[11px]">+{list.length - 3} more</div>}
+                {list.length > 3 && <div className="px-1 text-[11px]">{t("more", { count: list.length - 3 })}</div>}
               </div>
             </div>
           );

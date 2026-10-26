@@ -6,7 +6,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <>
       <Nav user={user} />
-      <main className="mx-auto w-full max-w-6xl flex-1 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">{children}</main>
+      <main className="w-full flex-1 p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-8 lg:px-12 lg:pt-6">{children}</main>
     </>
   );
 }

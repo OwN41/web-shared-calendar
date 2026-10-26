@@ -1,3 +1,4 @@
+import { useLocale, useTranslations } from "next-intl";
 import type { CalEvent, Group } from "@/lib/queries";
 import { deleteEvent, setEventShares } from "@/lib/actions";
 import { formatDay, formatTime } from "@/lib/dates";
@@ -7,18 +8,20 @@ export function EventList({
   events,
   groups,
   userId,
-  heading = "Events this month",
+  heading,
 }: {
   events: CalEvent[];
   groups: Group[];
   userId: string;
-  heading?: string;
+  heading: string;
 }) {
+  const t = useTranslations("events");
+  const locale = useLocale();
   const groupName = new Map(groups.map((g) => [g.id, g.name]));
   return (
     <section>
-      <h3 className="mb-2 mt-6 font-semibold">{heading}</h3>
-      {events.length === 0 && <p className="text-sm text-zinc-500">Nothing planned.</p>}
+      <h3 className="mb-2 font-semibold">{heading}</h3>
+      {events.length === 0 && <p className="text-sm text-zinc-500">{t("nothing")}</p>}
       <ul className="space-y-2">
         {events.map((e) => {
           const mine = e.owner_id === userId;
@@ -28,27 +31,27 @@ export function EventList({
                 <div>
                   <div className="font-medium">{e.title}</div>
                   <div className="text-sm text-zinc-500">
-                    {formatDay(e.starts_at)}
-                    {e.all_day ? " · all day" : ` · ${formatTime(e.starts_at)}–${formatTime(e.ends_at)}`}
+                    {formatDay(e.starts_at, locale)}
+                    {e.all_day ? ` · ${t("allDay")}` : ` · ${formatTime(e.starts_at)}–${formatTime(e.ends_at)}`}
                     {e.location && ` · ${e.location}`}
                   </div>
                   {e.description && <p className="mt-1 text-sm">{e.description}</p>}
                   <div className="mt-1 text-xs text-zinc-500">
-                    {mine ? "You" : e.owner_name}
+                    {mine ? t("you") : e.owner_name}
                     {e.group_ids.length > 0 &&
-                      ` · shared with ${e.group_ids.map((g) => groupName.get(g) ?? "a group").join(", ")}`}
+                      ` · ${t("sharedWith", { groups: e.group_ids.map((g) => groupName.get(g) ?? t("aGroup")).join(", ") })}`}
                   </div>
                 </div>
                 {mine && (
                   <form action={deleteEvent}>
                     <input type="hidden" name="id" value={e.id} />
-                    <button className={btnDangerCls}>Delete</button>
+                    <button className={btnDangerCls}>{t("delete")}</button>
                   </form>
                 )}
               </div>
               {mine && groups.length > 0 && (
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-sm text-blue-600">Share…</summary>
+                  <summary className="cursor-pointer text-sm text-blue-600">{t("share")}</summary>
                   <form action={setEventShares} className="mt-2 flex flex-wrap items-center gap-3 text-sm">
                     <input type="hidden" name="id" value={e.id} />
                     {groups.map((g) => (
@@ -57,7 +60,7 @@ export function EventList({
                         {g.name}
                       </label>
                     ))}
-                    <button className={btnGhostCls}>Save</button>
+                    <button className={btnGhostCls}>{t("save")}</button>
                   </form>
                 </details>
               )}

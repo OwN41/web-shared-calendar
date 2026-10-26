@@ -2,8 +2,11 @@
 
 import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { Prisma } from "@prisma/client";
+import { LOCALE_COOKIE, isLocale } from "@/i18n/config";
 import { prisma } from "./db";
 import {
   clearLoginFailures,
@@ -22,22 +25,39 @@ const str = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const fail = (path: string, msg: string): never =>
   redirect(`${path}?error=${encodeURIComponent(msg)}`);
 const COLOR = /^#[0-9a-fA-F]{6}$/;
+const USERNAME = /^[a-z0-9_.-]{3,30}$/;
+
+/* ---------- language ---------- */
+
+export async function setLocale(fd: FormData) {
+  const locale = str(fd, "locale");
+  if (!isLocale(locale)) return;
+  (await cookies()).set(LOCALE_COOKIE, locale, {
+    path: "/",
+    maxAge: 365 * 86_400,
+    sameSite: "lax",
+  });
+  revalidatePath("/", "layout");
+}
 
 /* ---------- auth ---------- */
 
 export async function register(fd: FormData) {
+  const t = await getTranslations("errors");
   const name = str(fd, "name");
   const email = str(fd, "email").toLowerCase();
+  const username = str(fd, "username").toLowerCase();
   const password = String(fd.get("password") ?? "");
   const color = COLOR.test(str(fd, "color")) ? str(fd, "color") : "#3b82f6";
 
-  if (!name || name.length > 80) fail("/register", "Please enter your name.");
+  if (!name || name.length > 80) fail("/register", t("name"));
+  if (!USERNAME.test(username)) fail("/register", t("username"));
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)
-    fail("/register", "Please enter a valid email address.");
+    fail("/register", t("email"));
   if (password.length < 8 || password.length > 200)
-    fail("/register", "Password must be at least 8 characters.");
+    fail("/register", t("passwordShort"));
   if (password !== String(fd.get("confirm") ?? ""))
-    fail("/register", "Passwords do not match.");
+    fail("/register", t("passwordMismatch"));
 
   const hash = await hashPassword(password);
   // The very first account becomes the administrator.
@@ -46,13 +66,17 @@ export async function register(fd: FormData) {
     user = await prisma.$transaction(async (tx) => {
       const role = (await tx.user.count()) === 0 ? "admin" : "user";
       return tx.user.create({
-        data: { email, name, passwordHash: hash, color, role },
+        data: { email, username, name, passwordHash: hash, color, role },
         select: { id: true },
       });
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      fail("/register", "An account with this email already exists.");
+      const target = String(error.meta?.target ?? "");
+      fail(
+        "/register",
+        target.includes("username") ? t("usernameTaken") : t("emailTaken"),
+      );
     }
     throw error;
   }
@@ -61,28 +85,39 @@ export async function register(fd: FormData) {
 }
 
 export async function login(fd: FormData) {
-  const email = str(fd, "email").toLowerCase();
+  const t = await getTranslations("errors");
+  const email = str(fd, "login").toLowerCase();
   const password = String(fd.get("password") ?? "");
-  if (loginThrottled(email)) fail("/login", "Too many attempts. Try again later.");
+  if (loginThrottled(email)) fail("/login", t("tooManyAttempts"));
 
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: email.includes("@") ? { email } : { username: email },
     select: { id: true, passwordHash: true, disabled: true },
   });
   if (!user) {
     recordLoginFailure(email);
-    return fail("/login", "Invalid email or password.");
+    return fail("/login", t("invalidLogin"));
   }
   if (!(await verifyPassword(password, user.passwordHash))) {
     recordLoginFailure(email);
-    return fail("/login", "Invalid email or password.");
+    return fail("/login", t("invalidLogin"));
   }
-  if (user.disabled) return fail("/login", "This account has been disabled.");
+  if (user.disabled) return fail("/login", t("disabled"));
 
   clearLoginFailures(email);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await createSession(user.id);
   redirect("/calendar");
+}
+
+export async function updateColor(fd: FormData) {
+  const user = await requireUser();
+  const t = await getTranslations("errors");
+  const color = str(fd, "color");
+  if (!COLOR.test(color)) fail("/settings", t("color"));
+  await prisma.user.update({ where: { id: user.id }, data: { color } });
+  revalidatePath("/", "layout");
+  redirect("/settings?saved=1");
 }
 
 export async function logout() {
@@ -106,16 +141,17 @@ const uuids = (fd: FormData, key: string) =>
 
 export async function createEvent(fd: FormData) {
   const user = await requireUser();
+  const t = await getTranslations("errors");
   const back = str(fd, "back") === "/shared" ? "/shared" : "/calendar";
   const title = str(fd, "title");
   const allDay = fd.get("all_day") === "on";
   const starts = parseLocalInput(str(fd, "starts_at"), allDay);
   let ends = parseLocalInput(str(fd, "ends_at") || str(fd, "starts_at"), allDay);
 
-  if (!title || title.length > 200) fail(back, "Please enter a title.");
-  if (!starts || !ends) return fail(back, "Please enter valid dates.");
+  if (!title || title.length > 200) fail(back, t("eventTitle"));
+  if (!starts || !ends) return fail(back, t("eventDates"));
   if (allDay) ends = new Date(ends.getTime() + 86_399_000);
-  if (ends < starts) fail(back, "The end must not be before the start.");
+  if (ends < starts) fail(back, t("eventEnd"));
 
   const groups = await myGroupIds(user.id, uuids(fd, "groups"));
   await prisma.$transaction(async (tx) => {
@@ -173,8 +209,9 @@ const newInviteCode = () => randomBytes(5).toString("hex").toUpperCase();
 
 export async function createGroup(fd: FormData) {
   const user = await requireUser();
+  const t = await getTranslations("errors");
   const name = str(fd, "name");
-  if (!name || name.length > 80) fail("/groups", "Please enter a group name.");
+  if (!name || name.length > 80) fail("/groups", t("groupName"));
   await prisma.$transaction(async (tx) => {
     const group = await tx.group.create({
       data: { name, inviteCode: newInviteCode(), createdBy: user.id },
@@ -190,9 +227,10 @@ export async function createGroup(fd: FormData) {
 
 export async function joinGroup(fd: FormData) {
   const user = await requireUser();
+  const t = await getTranslations("errors");
   const code = str(fd, "code").toUpperCase();
   const group = await prisma.group.findUnique({ where: { inviteCode: code }, select: { id: true } });
-  if (!group) return fail("/groups", "Invalid invite code.");
+  if (!group) return fail("/groups", t("inviteCode"));
   await prisma.groupMember.createMany({
     data: [{ groupId: group.id, userId: user.id }],
     skipDuplicates: true,

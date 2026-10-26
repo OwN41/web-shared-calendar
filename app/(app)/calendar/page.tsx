@@ -1,13 +1,13 @@
-import { EventForm } from "@/components/EventForm";
-import { EventList } from "@/components/EventList";
-import { MonthView } from "@/components/MonthView";
+import { getTranslations } from "next-intl/server";
+import { CalendarBoard } from "@/components/CalendarBoard";
 import { ErrorBanner } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { addMonths, parseMonth } from "@/lib/dates";
+import { addMonths, monthKey, parseMonth } from "@/lib/dates";
 import { myEvents, myGroups } from "@/lib/queries";
 
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
   const user = await requireUser();
+  const t = await getTranslations("calendar");
   const sp = await searchParams;
   const month = parseMonth(typeof sp.month === "string" ? sp.month : undefined);
   const [events, groups] = await Promise.all([
@@ -16,11 +16,9 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   ]);
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">My calendar</h1>
+      <h1 className="text-xl font-semibold">{t("myTitle")}</h1>
       <ErrorBanner message={typeof sp.error === "string" ? sp.error : undefined} />
-      <EventForm groups={groups} back="/calendar" />
-      <MonthView basePath="/calendar" month={month} events={events} />
-      <EventList events={events} groups={groups} userId={user.id} />
+      <CalendarBoard key={monthKey(month)} basePath="/calendar" month={month} events={events} groups={groups} userId={user.id} />
     </div>
   );
 }
